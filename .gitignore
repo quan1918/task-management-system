@@ -1,0 +1,59 @@
+# Build and IDE
+target/
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+.DS_Store
+.classpath
+.project
+.settings/
+bin/
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Gradle (if used)
+.gradle/
+gradle/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Node modules (if using frontend build tools)
+node_modules/
+npm-debug.log
+
+# OS specific
+Thumbs.db
+.DS_Store
+
+# IntelliJ
+*.iws
+*.iml
+
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Database
+*.db
+*.sqlite

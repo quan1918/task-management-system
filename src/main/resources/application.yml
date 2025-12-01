@@ -1,0 +1,183 @@
+# ============================================================================
+# TASK MANAGEMENT SYSTEM - Spring Boot Configuration (Step-by-Step Learning)
+# ============================================================================
+# Instructions:
+# 1. Start with STEP 1 (already enabled)
+# 2. Uncomment each STEP as you learn the concept
+# 3. Follow the progression: STEP 1 → 2 → 3 → 4 → 5
+# 4. Read the comments to understand each property
+# 5. Test the application after each step
+# ============================================================================
+
+# ============================================================================
+# STEP 1: APPLICATION BASICS (ENABLED)
+# ============================================================================
+# Concepts: Application identity, profile selection
+# What you'll learn: How Spring Boot identifies your app and loads profiles
+# ============================================================================
+
+spring:
+  application:
+    name: task-management-system
+  
+  profiles:
+    active: dev  # Options: dev, prod (defined below)
+
+# ============================================================================
+# STEP 2: SERVER & API CONFIGURATION (COMMENTED - UNCOMMENT NEXT)
+# ============================================================================
+# Concepts: API context path, error handling, file uploads
+# What you'll learn: How to configure server behavior and API endpoints
+# Prerequisites: Understand REST API basics
+# ============================================================================
+
+# server:
+#   servlet:
+#     context-path: /api  # All endpoints prefixed with /api (e.g., /api/tasks)
+#   error:
+#     include-message: always  # Include error messages in HTTP responses
+#     include-binding-errors: always  # Include field validation errors
+#
+# spring:
+#   servlet:
+#     multipart:
+#       max-file-size: 10MB  # Maximum size for a single file upload
+#       max-request-size: 10MB  # Maximum size for entire multipart request
+
+# ============================================================================
+# STEP 3: DATABASE & PERSISTENCE (COMMENTED - UNCOMMENT WHEN POSTGRESQL READY)
+# ============================================================================
+# Concepts: JPA/Hibernate, database dialects, SQL logging
+# What you'll learn: How to connect to PostgreSQL and configure entity mapping
+# Prerequisites: PostgreSQL must be installed and running on localhost:5432
+# Setup: createdb task_management_dev
+# ============================================================================
+
+# spring:
+#   datasource:
+#     url: jdbc:postgresql://localhost:5432/task_management_dev
+#     username: postgres
+#     password: postgres
+#     driver-class-name: org.postgresql.Driver
+#   
+#   jpa:
+#     hibernate:
+#       ddl-auto: validate  # Validate schema matches entities (don't modify)
+#     show-sql: true  # Log SQL queries to console (for learning)
+#     properties:
+#       hibernate:
+#         dialect: org.hibernate.dialect.PostgreSQLDialect
+#         format_sql: true  # Pretty-print SQL queries
+#         use_sql_comments: true  # Add HQL source comments to SQL
+
+# ============================================================================
+# STEP 4: JSON & DATA FORMATTING (COMMENTED - UNCOMMENT AFTER STEP 3)
+# ============================================================================
+# Concepts: Jackson serialization, date/time formatting, null handling
+# What you'll learn: How Spring Boot converts Java objects to/from JSON
+# Prerequisites: Understand how JSON is used in REST APIs
+# ============================================================================
+
+# spring:
+#   jackson:
+#     default-property-inclusion: non_null  # Don't serialize null fields
+#     serialization:
+#       write-dates-as-timestamps: false  # Use ISO-8601 format: "2025-12-01T10:30:00"
+#       indent-output: false  # Compact JSON (disable for pretty-printing during debug)
+
+# ============================================================================
+# STEP 5: MONITORING & LOGGING (COMMENTED - UNCOMMENT LAST)
+# ============================================================================
+# Concepts: Actuator endpoints, log levels, log patterns
+# What you'll learn: How to monitor application health and debug issues
+# Prerequisites: Understand logging levels (DEBUG, INFO, WARN, ERROR)
+# ============================================================================
+
+# # Actuator: Exposes monitoring endpoints
+# management:
+#   endpoints:
+#     web:
+#       exposure:
+#         include: health,metrics,prometheus  # Expose these endpoints
+#   endpoint:
+#     health:
+#       show-details: when-authorized  # Show component details only to authorized users
+#
+# # Logging: Configure what gets logged and how
+# logging:
+#   level:
+#     root: INFO  # Default level for all loggers
+#     com.taskmanagement: DEBUG  # Our code: verbose output
+#     org.springframework.security: DEBUG  # Spring Security: trace auth flow
+#     org.hibernate.SQL: DEBUG  # SQL queries: see all database operations
+#   pattern:
+#     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"  # Console format
+#   file:
+#     name: logs/task-management.log  # Write logs to file
+
+# ============================================================================
+# PROFILE 1: DEVELOPMENT
+# ============================================================================
+# When to use: mvn spring-boot:run (default)
+# Configuration: Local development with simple setup
+# ============================================================================
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+server:
+  port: 8080  # Development server runs on port 8080
+
+# Note: Database and logging configs from STEPS 3 & 5 are inherited/uncommented above
+
+# ============================================================================
+# PROFILE 2: PRODUCTION (COMMENTED - UNCOMMENT WHEN DEPLOYING)
+# ============================================================================
+# When to use: java -jar app.jar --spring.profiles.active=prod
+# Configuration: Environment variables, connection pooling, optimized logging
+# ============================================================================
+
+# ---
+# spring:
+#   config:
+#     activate:
+#       on-profile: prod
+#   
+#   datasource:
+#     # Use environment variables for sensitive data
+#     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/task_management_prod}
+#     username: ${DATABASE_USER:postgres}
+#     password: ${DATABASE_PASSWORD:}
+#     driver-class-name: org.postgresql.Driver
+#     hikari:
+#       maximum-pool-size: 20  # Max concurrent database connections
+#       minimum-idle: 5  # Keep 5 connections warm
+#       connection-timeout: 30000  # Wait max 30s for a connection
+#       idle-timeout: 600000  # Close idle connections after 10 minutes
+#       max-lifetime: 1800000  # Connection max lifetime 30 minutes
+#   
+#   jpa:
+#     hibernate:
+#       ddl-auto: validate
+#     show-sql: false  # Disable SQL logging (performance impact)
+#     properties:
+#       hibernate:
+#         format_sql: false  # No pretty-printing
+#
+# server:
+#   port: ${SERVER_PORT:8080}  # Use environment variable for port
+#   compression:
+#     enabled: true  # Gzip compress responses
+#     min-response-size: 1024  # Only compress if > 1KB
+#
+# logging:
+#   level:
+#     root: WARN  # Only warnings and errors in production
+#     com.taskmanagement: INFO  # Application: important events only
+#   file:
+#     name: /var/log/task-management/task-management.log
+#     max-size: 10MB  # Rotate when file reaches 10MB
+#     max-history: 30  # Keep 30 days of history
