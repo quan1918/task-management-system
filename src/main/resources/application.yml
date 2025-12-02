@@ -38,12 +38,22 @@ spring:
 #     include-message: always  # Include error messages in HTTP responses
 #     include-binding-errors: always  # Include field validation errors
 #
+server:
+  servlet:
+    context-path: /api
+  error:
+    include-message: always
+    include-binding-errors: always
 # spring:
 #   servlet:
 #     multipart:
 #       max-file-size: 10MB  # Maximum size for a single file upload
 #       max-request-size: 10MB  # Maximum size for entire multipart request
-
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
 # ============================================================================
 # STEP 3: DATABASE & PERSISTENCE (COMMENTED - UNCOMMENT WHEN POSTGRESQL READY)
 # ============================================================================
@@ -59,7 +69,13 @@ spring:
 #     username: postgres
 #     password: postgres
 #     driver-class-name: org.postgresql.Driver
-#   
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/task_management_dev
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
 #   jpa:
 #     hibernate:
 #       ddl-auto: validate  # Validate schema matches entities (don't modify)
@@ -69,7 +85,15 @@ spring:
 #         dialect: org.hibernate.dialect.PostgreSQLDialect
 #         format_sql: true  # Pretty-print SQL queries
 #         use_sql_comments: true  # Add HQL source comments to SQL
-
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
 # ============================================================================
 # STEP 4: JSON & DATA FORMATTING (COMMENTED - UNCOMMENT AFTER STEP 3)
 # ============================================================================
@@ -85,6 +109,12 @@ spring:
 #       write-dates-as-timestamps: false  # Use ISO-8601 format: "2025-12-01T10:30:00"
 #       indent-output: false  # Compact JSON (disable for pretty-printing during debug)
 
+spring:
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
 # ============================================================================
 # STEP 5: MONITORING & LOGGING (COMMENTED - UNCOMMENT LAST)
 # ============================================================================
@@ -102,7 +132,14 @@ spring:
 #   endpoint:
 #     health:
 #       show-details: when-authorized  # Show component details only to authorized users
-#
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
 # # Logging: Configure what gets logged and how
 # logging:
 #   level:
@@ -115,6 +152,16 @@ spring:
 #   file:
 #     name: logs/task-management.log  # Write logs to file
 
+logging:
+  level:
+    root: INFO
+    com.taskmanagement: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+  file:
+    name: logs/task-management.log
 # ============================================================================
 # PROFILE 1: DEVELOPMENT
 # ============================================================================
