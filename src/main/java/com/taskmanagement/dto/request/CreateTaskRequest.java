@@ -65,8 +65,8 @@ public class CreateTaskRequest {
  *
  * Giá trị hợp lệ: LOW, MEDIUM, HIGH, CRITICAL
  */
-    @NotBlank(message = "Priority is required")
-    private String  priority;
+    @NotNull(message = "Priority is required")
+    private TaskPriority priority;
 
 /**
  * Ngày hết hạn — deadline hoàn thành task
@@ -101,7 +101,7 @@ public class CreateTaskRequest {
  * - Không bắt buộc
  * - Tối đa 1000 ký tự
  *
- * Ví dụ: "Related to issue #123"
+ * Ví dụ: "Related to issue "
  */
     @Size(max = 1000, message = "Notes cannot exceed 1000 characters")
     private String notes;
