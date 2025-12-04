@@ -1,12 +1,20 @@
 package com.taskmanagement.entity;
 
+// JPA/Hibernate annotations
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
+
+// Lombok
 import lombok.*;
+
+// Hibernate timestamps
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+// Java built-in
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Task entity – Thực thể cốt lõi trong hệ thống quản lý công việc (Task Management System)
@@ -207,6 +215,66 @@ public class Task {
     @JoinColumn(name = "project_id", nullable = false)
     @NotNull(message = "Task project i required")
     private Project project;
+
+/**
+ * One-to-Many với Comment
+ * Task có thể có nhiều comment
+ */
+@OneToMany(
+    mappedBy = "task",
+    cascade = CascadeType.ALL,
+    fetch = FetchType.LAZY,
+    orphanRemoval = true
+)
+@Builder.Default
+private List<Comment> comments = new ArrayList<>();
+
+/**
+ * Quan hệ One-to-Many với Attachment
+ * Một Task có thể có nhiều file đính kèm
+ *
+ * Cascade: ALL - Attachment bị xóa khi Task bị xóa
+ * Fetch: LAZY - Chỉ tải attachments khi được truy cập
+ * OrphanRemoval: true - Xóa attachment khi bị loại khỏi danh sách
+ */
+@OneToMany(
+    mappedBy = "task",
+    cascade = CascadeType.ALL,
+    fetch = FetchType.LAZY,
+    orphanRemoval = true
+)
+@Builder.Default
+private List<Attachment> attachments = new ArrayList<>();
+
+// Helper methods
+public void addComment(Comment comment) {
+    comment.setTask(this);
+    this.comments.add(comment);
+}
+
+public void removeComment(Comment comment) {
+    this.comments.remove(comment);
+    comment.setTask(null);
+}
+
+// Helper method để thêm attachment
+public void addAttachment(Attachment attachment) {
+    attachment.setTask(this);
+    this.attachments.add(attachment);
+}
+
+// Helper method để xóa attachment
+public void removeAttachment(Attachment attachment) {
+    this.attachments.remove(attachment);
+    attachment.setTask(null);
+}
+
+// Lấy tổng dung lượng tất cả các attachments
+public long getTotalAttachmentsSize() {
+    return attachments.stream()
+        .mapToLong(Attachment::getFileSize)
+        .sum();
+}
     
 // ==================== AUDIT FIELDS ====================
 
