@@ -249,7 +249,7 @@ public class Attachment {
  * Dùng để: hiển thị icon file phù hợp trong UI
  */
     public String getFileExtension() {
-        if (this.originalFilename != null || !this.originalFilename.contains(".")) {
+        if (this.originalFilename == null || !this.originalFilename.contains(".")) {
             return "";
         }
         int lastDotIndex = this.originalFilename.lastIndexOf('.');
@@ -302,7 +302,7 @@ public class Attachment {
         }
         return this.contentType.equals("application/pdf") ||
                this.contentType.equals("application/msword") ||
-               this.contentType.equals("application/vnd.openxmlformarts-officedocument.wordprocessingml.document") ||
+               this.contentType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document") ||
                this.contentType.equals("application/vnd.ms-excel")||
                this.contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }

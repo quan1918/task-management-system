@@ -116,8 +116,6 @@ public class Comment {
  * - Xóa comment không được xóa task
  * - Khi xóa task → Task (chủ sở hữu) sẽ cascade để xóa comment
  *
- * optional=false:
- * - Database đảm bảo không có comment mồ côi
  *
  * Ghi chú thêm:
  * Task entity sẽ có:
@@ -184,7 +182,7 @@ public class Comment {
  * @param newText nội dung mới của comment
  * @throws IllegalArgumentException nếu text không hợp lệ
  */
-    public void updateText(String newText) {
+    public void updatedText(String newText) {
         if (newText == null || newText.trim().isEmpty()) { 
             throw new IllegalArgumentException("Comment text cannot be blank");
         }

@@ -45,7 +45,7 @@ public class GlobalExceptionHandler {
  * Trả về: 400 Bad Request với danh sách field errors
  */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Object> handleValidationErrors(
+    public ResponseEntity<ErrorResponse> handleValidationErrors(
             MethodArgumentNotValidException ex,
             WebRequest request) {
         
@@ -81,7 +81,7 @@ public class GlobalExceptionHandler {
  * Trả về: 404 Not Found
  */
     @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handeUserNotFound(
+    public ResponseEntity<ErrorResponse> handleUserNotFound(
             UserNotFoundException ex,
             WebRequest request) {
         
@@ -123,6 +123,44 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
+
+// ==================== TASK NOT FOUND (404 Not Found) ====================
+    
+    /**
+     * Xử lý TaskNotFoundException
+     * 
+     * Được kích hoạt khi:
+     * - Task ID không tồn tại
+     * - TaskService.getTaskById() không tìm thấy task
+     * 
+     * Trả về: 404 Not Found
+     * 
+     * Example Response:
+     * {
+     *   "timestamp": "2025-12-07T10:30:00",
+     *   "status": 404,
+     *   "error": "Task Not Found",
+     *   "message": "Task not found with ID: 123",
+     *   "path": "/api/tasks/123"
+     * }
+     */
+    @ExceptionHandler(TaskNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTaskNotFound(
+            TaskNotFoundException ex,
+            WebRequest request) {
+
+        log.error("Task not found: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error("Task Not Found")
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+            }
     
 // ==================== GENERIC ERRORS (500 Internal Server Error) ====================
 

@@ -152,7 +152,7 @@ public class Task {
  * Mục đích: Theo dõi thời gian giao việc, tính velocity
  */
     @Column
-    private LocalDateTime completeAt;
+    private LocalDateTime completedAt;
 
 /**
  * Estimated hours – Thời gian dự kiến cần để hoàn thành task
@@ -213,7 +213,7 @@ public class Task {
  */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "project_id", nullable = false)
-    @NotNull(message = "Task project i required")
+    @NotNull(message = "Task project is required")
     private Project project;
 
 /**
@@ -333,7 +333,7 @@ public long getTotalAttachmentsSize() {
             );
         }
         this.status = TaskStatus.COMPLETED;
-        this.completeAt = LocalDateTime.now();
+        this.completedAt = LocalDateTime.now();
     }
 
 /**

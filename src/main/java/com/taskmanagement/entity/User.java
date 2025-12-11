@@ -153,7 +153,7 @@ public class User {
  */
     @UpdateTimestamp
     @Column(nullable = false)
-    private LocalDateTime updateAt;
+    private LocalDateTime updatedAt;
 
 // ==================== BUSINESS LOGIC METHODS ====================
 /**

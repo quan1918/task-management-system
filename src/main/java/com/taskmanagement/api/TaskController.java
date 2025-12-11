@@ -1,7 +1,9 @@
 package com.taskmanagement.api;
 
 import com.taskmanagement.dto.request.CreateTaskRequest;
+import com.taskmanagement.dto.request.UpdateTaskRequest;
 import com.taskmanagement.dto.response.TaskResponse;
+import com.taskmanagement.exception.TaskNotFoundException;
 import com.taskmanagement.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -150,19 +152,191 @@ public class TaskController {
                 .body(response);
     }
 
-    // ==================== FUTURE ENDPOINTS ====================
-
-    // Các endpoint tương lai cho các tính năng khác:
-
+    // ==================== GET TASK BY ID ====================
+    
     /**
      * Lấy task theo ID
-     * GET /api/tasks/{id}
+     * 
+     * Endpoint: GET /api/tasks/{id}
+     * 
+     * Request:
+     * - Method: GET
+     * - URL: /api/tasks/{id}
+     * - Path Variable: id (Long) - Task ID cần lấy
+     * - Authentication: Required (Basic Auth)
+     * 
+     * Response:
+     * - Thành công: 200 OK
+     *   - Body: TaskResponse (JSON) với đầy đủ thông tin task
+     * - Task không tồn tại: 404 Not Found
+     *   - Body: ErrorResponse với message "Task not found with ID: X"
+     * - Unauthorized: 401 Unauthorized (nếu không có auth)
+     * - Server error: 500 Internal Server Error
+     * 
+     * Ví dụ Request:
+     * GET /api/tasks/123
+     * Authorization: Basic YWRtaW46YWRtaW4xMjM=
+     * 
+     * Ví dụ Response (Success - 200 OK):
+     * {
+     *   "id": 123,
+     *   "title": "Fix login bug",
+     *   "description": "Users cannot login with special characters",
+     *   "status": "PENDING",
+     *   "priority": "HIGH",
+     *   "dueDate": "2025-12-15T17:00:00",
+     *   "startDate": null,
+     *   "completedAt": null,
+     *   "estimatedHours": 8,
+     *   "notes": "Check password validation",
+     *   "assignee": {
+     *     "id": 5,
+     *     "username": "johndoe",
+     *     "fullName": "John Doe",
+     *     "email": "john@example.com"
+     *   },
+     *   "project": {
+     *     "id": 3,
+     *     "name": "Website Redesign",
+     *     "active": true
+     *   },
+     *   "commentCount": 2,
+     *   "attachmentCount": 1,
+     *   "overdue": false,
+     *   "hoursUntilDue": 192,
+     *   "createdAt": "2025-12-05T10:30:00",
+     *   "updatedAt": "2025-12-05T10:30:00"
+     * }
+     * 
+     * Ví dụ Response (Not Found - 404):
+     * {
+     *   "timestamp": "2025-12-07T10:30:00",
+     *   "status": 404,
+     *   "error": "Task Not Found",
+     *   "message": "Task not found with ID: 999",
+     *   "path": "/api/tasks/999"
+     * }
+     * 
+     * @param id Task ID (từ URL path)
+     * @return ResponseEntity với 200 OK và TaskResponse
+     * @throws TaskNotFoundException nếu task không tồn tại (handled by GlobalExceptionHandler)
      */
-    // @GetMapping("/{id}")
-    // public ResponseEntity<TaskResponse> getTaskById(@PathVariable Long id) {
-    //     TaskResponse response = taskService.getTaskById(id);
-    //     return ResponseEntity.ok(response);
-    // }
+    @GetMapping("/{id}")
+    public ResponseEntity<TaskResponse> getTaskById(@PathVariable Long id) {
+        log.info("GET /api/tasks/{} - Fetching task by ID", id);
+        
+        // ========== STEP 1: Call Service (Business Logic) ==========
+        
+        TaskResponse response = taskService.getTaskById(id);
+        
+        log.info("Task retrieved successfully: taskId={}, title={}", 
+            response.getId(), response.getTitle());
+        
+        // ========== STEP 2: Return Response with 200 OK ==========
+        
+        // ResponseEntity.ok() automatically:
+        // - Sets status: 200 OK
+        // - Sets Content-Type: application/json
+        // - Includes response body
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== UPDATE TASK ENDPOINT ====================
+
+    /**
+     * Cập nhật task hiện có (partial update)
+     * 
+     * Endpoint: PUT /api/tasks/{id}
+     * 
+     * Request:
+     * - Method: PUT (hoặc PATCH cho partial update)
+     * - URL: /api/tasks/{id}
+     * - Path Variable: id (Long) - Task ID cần update
+     * - Content-Type: application/json
+     * - Body: UpdateTaskRequest (JSON) - Chỉ gửi các field cần update
+     * - Authentication: Required (Basic Auth)
+     * 
+     * Ví dụ Request: Update multiple fields
+     * PUT /api/tasks/123
+     * 
+     * {
+     *   "title": "Fix critical login bug",
+     *   "description": "Users cannot login with special characters in password",
+     *   "status": "IN_PROGRESS",
+     *   "priority": "CRITICAL",
+     *   "dueDate": "2025-12-10T17:00:00",
+     *   "estimatedHours": 12,
+     *   "notes": "Urgent fix needed"
+     * }
+     * 
+     * Ví dụ Response (Success - 200 OK):
+     * {
+     *   "id": 123,
+     *   "title": "Fix critical login bug",
+     *   "description": "Users cannot login with special characters in password",
+     *   "status": "IN_PROGRESS",
+     *   "priority": "CRITICAL",
+     *   "dueDate": "2025-12-10T17:00:00",
+     *   "startDate": null,
+     *   "completedAt": null,
+     *   "estimatedHours": 12,
+     *   "notes": "Urgent fix needed",
+     *   "assignee": {
+     *     "id": 5,
+     *     "username": "johndoe",
+     *     "fullName": "John Doe",
+     *     "email": "john@example.com"
+     *   },
+     *   "project": {
+     *     "id": 3,
+     *     "name": "Website Redesign",
+     *     "active": true
+     *   },
+     *   "commentCount": 0,
+     *   "attachmentCount": 0,
+     *   "overdue": false,
+     *   "hoursUntilDue": 72,
+     *   "createdAt": "2025-12-04T10:30:00",
+     *   "updatedAt": "2025-12-09T14:25:30"  // Updated!
+     * }
+     * 
+     * Ví dụ Response (Error - 404 Not Found):
+     * {
+     *   "timestamp": "2025-12-09T14:25:30",
+     *   "status": 404,
+     *   "error": "Not Found",
+     *   "message": "Task not found with ID: 999",
+     *   "path": "/api/tasks/999"
+     * }
+     * 
+     * @param id Task ID cần update (từ path variable)
+     * @param request UpdateTaskRequest DTO (validated tự động)
+     * @return ResponseEntity với 200 OK và TaskResponse
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<TaskResponse> updateTask(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateTaskRequest request) {
+        
+        log.info("PUT /api/tasks/{} - Updating task", id);
+        log.debug("Update request: {}", request);
+        
+        // ========== STEP 1: Gọi Service (Business Logic) ==========
+        
+        TaskResponse response = taskService.updateTask(id, request);
+        
+        log.info("Task updated successfully: id={}, updatedAt={}", 
+            response.getId(), response.getUpdatedAt());
+        
+        // ========== STEP 2: Trả Response 200 OK ==========
+        
+        // PUT endpoint thường return 200 OK với updated resource
+        // Hoặc 204 No Content nếu không return body
+        
+        return ResponseEntity.ok(response);
+    }
+    // ==================== FUTURE ENDPOINTS ====================
+
 
     /**
      * Lấy danh sách task (kèm filter)
@@ -176,17 +350,6 @@ public class TaskController {
     //     return ResponseEntity.ok(tasks);
     // }
 
-    /**
-     * Update task
-     * PUT /api/tasks/{id}
-     */
-    // @PutMapping("/{id}")
-    // public ResponseEntity<TaskResponse> updateTask(
-    //         @PathVariable Long id,
-    //         @Valid @RequestBody UpdateTaskRequest request) {
-    //     TaskResponse response = taskService.updateTask(id, request);
-    //     return ResponseEntity.ok(response);
-    // }
 
     /**
      * Xóa task

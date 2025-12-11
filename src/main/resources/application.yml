@@ -23,33 +23,13 @@ spring:
   profiles:
     active: dev  # Options: dev, prod (defined below)
 
-# ============================================================================
-# STEP 2: SERVER & API CONFIGURATION (COMMENTED - UNCOMMENT NEXT)
-# ============================================================================
-# Concepts: API context path, error handling, file uploads
-# What you'll learn: How to configure server behavior and API endpoints
-# Prerequisites: Understand REST API basics
-# ============================================================================
 
-# server:
-#   servlet:
-#     context-path: /api  # All endpoints prefixed with /api (e.g., /api/tasks)
-#   error:
-#     include-message: always  # Include error messages in HTTP responses
-#     include-binding-errors: always  # Include field validation errors
-#
-server:
-  servlet:
-    context-path: /api
-  error:
-    include-message: always
-    include-binding-errors: always
 # spring:
 #   servlet:
 #     multipart:
 #       max-file-size: 10MB  # Maximum size for a single file upload
 #       max-request-size: 10MB  # Maximum size for entire multipart request
-spring:
+
   servlet:
     multipart:
       max-file-size: 10MB
@@ -69,11 +49,11 @@ spring:
 #     username: postgres
 #     password: postgres
 #     driver-class-name: org.postgresql.Driver
-spring:
+
   datasource:
     url: jdbc:postgresql://localhost:5432/task_management_dev
     username: postgres
-    password: postgres
+    password: 191899
     driver-class-name: org.postgresql.Driver
 
 #   jpa:
@@ -109,12 +89,38 @@ spring:
 #       write-dates-as-timestamps: false  # Use ISO-8601 format: "2025-12-01T10:30:00"
 #       indent-output: false  # Compact JSON (disable for pretty-printing during debug)
 
-spring:
   jackson:
     default-property-inclusion: non_null
     serialization:
       write-dates-as-timestamps: false
       indent-output: false
+
+# ========== FLYWAY CONFIGURATION (ADD THIS) ==========
+  flyway:
+    enabled: true
+    baseline-on-migrate: true  # ← Cho phép Flyway làm việc với DB hiện có
+    baseline-version: 0        # ← Version ban đầu
+    locations: classpath:db/migration  # ← Nơi chứa migration files
+
+# ============================================================================
+# STEP 2: SERVER & API CONFIGURATION (COMMENTED - UNCOMMENT NEXT)
+# ============================================================================
+# Concepts: API context path, error handling, file uploads
+# What you'll learn: How to configure server behavior and API endpoints
+# Prerequisites: Understand REST API basics
+# ============================================================================
+
+# server:
+#   servlet:
+#     context-path: /api  # All endpoints prefixed with /api (e.g., /api/tasks)
+#   error:
+#     include-message: always  # Include error messages in HTTP responses
+#     include-binding-errors: always  # Include field validation errors
+#
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
 # ============================================================================
 # STEP 5: MONITORING & LOGGING (COMMENTED - UNCOMMENT LAST)
 # ============================================================================
@@ -158,6 +164,7 @@ logging:
     com.taskmanagement: DEBUG
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
+    org.flywaydb: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
   file:

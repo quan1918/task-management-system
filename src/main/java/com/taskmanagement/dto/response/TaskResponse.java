@@ -123,7 +123,7 @@ public class TaskResponse {
             .priority(task.getPriority())
             .dueDate(task.getDueDate())
             .startDate(task.getStartDate())
-            .completedAt(task.getCompleteAt())
+            .completedAt(task.getCompletedAt())
             .estimatedHours(task.getEstimatedHours())
             .notes(task.getNotes())
             .assignee(UserSummary.builder()

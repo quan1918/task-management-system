@@ -233,6 +233,6 @@ public class Project {
  * Ví dụ: chỉ owner mới được sửa/xóa project
  */
     public boolean isOwnedBy(User user) {
-        return user != null && this.owner.getId().equals(user.getId().equals(user.getId()));
+        return user != null && this.owner.getId().equals(user.getId());
     }
 }

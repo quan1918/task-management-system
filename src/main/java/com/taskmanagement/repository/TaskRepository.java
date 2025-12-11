@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
  * - Persist entity task sau khi tạo
  *
  * Các phương thức cần cho Create Task:
- * - save(Task task) - Kế thừa từ JpaRepository (MIỄN PHÍ)
+ * - save(Task task) - Kế thừa từ JpaRepository
  *
  * Các phương thức tương lai (tạm bỏ qua):
  * - findByAssigneeId(), findByProjectId(), findByStatus()
