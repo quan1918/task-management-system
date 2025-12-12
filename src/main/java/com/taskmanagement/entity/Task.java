@@ -48,7 +48,9 @@ import java.util.List;
         @Index(name = "idx_task_assignee", columnList = "assignee_id"),
         @Index(name = "idx_task_project", columnList = "project_id"),
         @Index(name = "idx_task_due_date", columnList = "due_date"),
-        @Index(name = "idx_task_assignee_status", columnList = "assignee_id, status")
+        @Index(name = "idx_task_assignee_status", columnList = "assignee_id, status"),
+        @Index(name = "idx_task_deleted", columnList = "deleted"), 
+        @Index(name = "idx_task_deleted_at", columnList = "deleted_at")  
     }
 )
 @Data
@@ -220,14 +222,14 @@ public class Task {
  * One-to-Many với Comment
  * Task có thể có nhiều comment
  */
-@OneToMany(
-    mappedBy = "task",
-    cascade = CascadeType.ALL,
-    fetch = FetchType.LAZY,
-    orphanRemoval = true
-)
-@Builder.Default
-private List<Comment> comments = new ArrayList<>();
+    @OneToMany(
+        mappedBy = "task",
+        cascade = CascadeType.ALL,
+        fetch = FetchType.LAZY,
+        orphanRemoval = true
+    )
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
 
 /**
  * Quan hệ One-to-Many với Attachment
@@ -237,44 +239,95 @@ private List<Comment> comments = new ArrayList<>();
  * Fetch: LAZY - Chỉ tải attachments khi được truy cập
  * OrphanRemoval: true - Xóa attachment khi bị loại khỏi danh sách
  */
-@OneToMany(
-    mappedBy = "task",
-    cascade = CascadeType.ALL,
-    fetch = FetchType.LAZY,
-    orphanRemoval = true
-)
-@Builder.Default
-private List<Attachment> attachments = new ArrayList<>();
+    @OneToMany(
+        mappedBy = "task",
+        cascade = CascadeType.ALL,
+        fetch = FetchType.LAZY,
+        orphanRemoval = true
+    )
+    @Builder.Default
+    private List<Attachment> attachments = new ArrayList<>();
 
-// Helper methods
-public void addComment(Comment comment) {
-    comment.setTask(this);
-    this.comments.add(comment);
-}
+    // ==================== SOFT DELETE FIELDS ====================
+    // Soft delete flag
+    /**
+     * Giá trị:
+     * - false (default): Task đang active, hiển thị bình thường
+     * - true: Task đã bị "xóa", ẩn khỏi UI chính
+     * 
+     * Cách dùng:
+     * - task.softDelete() → Set deleted = true, deletedAt = now()
+     * - task.restore() → Set deleted = false, deletedAt = null
+     * - task.isDeleted() → Check xem task có bị xóa không
+     * 
+     * Queries cần filter:
+     * - findAll() → WHERE deleted = false (chỉ lấy active tasks)
+     * - findById() → WHERE id = ? AND deleted = false
+     * - findByProject() → WHERE project_id = ? AND deleted = false
+     * 
+     * @Column(nullable = false): Bắt buộc phải có giá trị (không được NULL)
+     * @Builder.Default: Task mới tạo mặc định deleted = false (active)
+     */
+    @Column(name = "deleted", nullable = false)
+    @Builder.Default
+    private boolean deleted = false;
 
-public void removeComment(Comment comment) {
-    this.comments.remove(comment);
-    comment.setTask(null);
-}
+    // Thời điểm task bị soft delete
+    /**
+     * Giá trị:
+     * - null (default): Task chưa bị xóa
+     * - timestamp: Task bị xóa lúc nào (ví dụ: 2025-12-11 10:30:00)
+     * 
+     * Dùng cho:
+     * - Audit trail: Biết task bị xóa lúc nào, bởi ai (thêm deletedBy sau)
+     * - "Recently deleted" feature: Hiển thị tasks xóa trong 7 ngày gần nhất
+     * - Auto cleanup: Xóa vĩnh viễn tasks deleted > 90 ngày
+     * - Restore deadline: "Bạn có 30 ngày để khôi phục task"
+     * 
+     * Business rules:
+     * - Khi deleted = false → deletedAt PHẢI NULL
+     * - Khi deleted = true → deletedAt PHẢI có giá trị
+     * - Restore task → Set deletedAt = null
+     * 
+     * Ví dụ queries:
+     * - Tasks xóa trong 7 ngày: WHERE deleted = true AND deletedAt > NOW() - INTERVAL '7 days'
+     * - Tasks cần cleanup: WHERE deleted = true AND deletedAt < NOW() - INTERVAL '90 days'
+     * 
+     * @Column(nullable = true): Cho phép NULL (task active thì deletedAt = null)
+     * No @Builder.Default: Mặc định là null
+     */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
-// Helper method để thêm attachment
-public void addAttachment(Attachment attachment) {
-    attachment.setTask(this);
-    this.attachments.add(attachment);
-}
+    // Helper methods
+    public void addComment(Comment comment) {
+        comment.setTask(this);
+        this.comments.add(comment);
+    }
 
-// Helper method để xóa attachment
-public void removeAttachment(Attachment attachment) {
-    this.attachments.remove(attachment);
-    attachment.setTask(null);
-}
+    public void removeComment(Comment comment) {
+        this.comments.remove(comment);
+        comment.setTask(null);
+    }
 
-// Lấy tổng dung lượng tất cả các attachments
-public long getTotalAttachmentsSize() {
-    return attachments.stream()
-        .mapToLong(Attachment::getFileSize)
-        .sum();
-}
+    // Helper method để thêm attachment
+    public void addAttachment(Attachment attachment) {
+        attachment.setTask(this);
+        this.attachments.add(attachment);
+    }
+
+    // Helper method để xóa attachment
+    public void removeAttachment(Attachment attachment) {
+        this.attachments.remove(attachment);
+        attachment.setTask(null);
+    }
+
+    // Lấy tổng dung lượng tất cả các attachments
+    public long getTotalAttachmentsSize() {
+        return attachments.stream()
+            .mapToLong(Attachment::getFileSize)
+            .sum();
+    }
     
 // ==================== AUDIT FIELDS ====================
 
@@ -396,5 +449,70 @@ public long getTotalAttachmentsSize() {
     public long hoursUntilDue() {
         return java.time.Duration.between(LocalDateTime.now(), this.dueDate).toHours();
     }
+
+/**
+ * softDelete – Đánh dấu task đã bị xóa (soft delete)
+ * 
+ * Quy tắc nghiệp vụ:
+ * - Không thực sự xóa khỏi database
+ * - Set deleted = true
+ * - Ghi lại thời điểm xóa
+ * - Task sẽ ẩn khỏi UI chính
+ * - Có thể restore() sau này
+ * 
+ * Lưu ý:
+ * - Comments và attachments KHÔNG bị xóa (vẫn còn trong DB)
+ * - Quan hệ với User và Project vẫn còn
+ * - Cần filter `deleted = false` khi query
+ * 
+ * Sử dụng:
+ * Task task = taskRepository.findById(123);
+ * task.softDelete();  // deleted = true, deletedAt = now
+ * taskRepository.save(task);  // Persist to DB
+ * 
+ */
+    public void softDelete() {
+        if (this.deleted) {
+            throw new IllegalStateException(
+                "Task is already deleted. Task ID: " + this.id
+            );
+        }
+        this.deleted = true;
+        this.deletedAt = LocalDateTime.now();
+    }
+
+/**
+ * restore – Khôi phục task đã bị soft delete
+ * 
+ * Quy tắc nghiệp vụ:
+ * - Chỉ restore được task đã soft delete (deleted = true)
+ * - Set deleted = false
+ * - Xóa thời điểm deletedAt
+ * - Task hiển thị lại trong UI
+ * 
+ * Lưu ý:
+ * - Không thay đổi status (task giữ nguyên PENDING/IN_PROGRESS/etc.)
+ * - Không thay đổi assignee, project, due date
+ * - Comments và attachments vẫn còn nguyên
+ * 
+ * Sử dụng:
+ * Task task = taskRepository.findByIdIncludingDeleted(123);
+ * if (task.isDeleted()) {
+ *     task.restore();  // deleted = false, deletedAt = null
+ *     taskRepository.save(task);
+ * }
+ * 
+ * UI Feature: "Undo Delete" button trong 7 ngày
+ */
+    public void restore() {
+        if (!this.deleted) {
+            throw new IllegalStateException(
+                "Task is not deleted, cannot restore. Task ID: " + this.id
+            );
+        }
+        this.deleted = false;
+        this.deletedAt = null;
+    }
+
 }
 

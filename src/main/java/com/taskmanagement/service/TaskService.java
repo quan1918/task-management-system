@@ -46,7 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class TaskService {
 
-// ==================== DEPENDENCIES ====================
+    // ==================== DEPENDENCIES ====================
     /**
      * Các dependency của Repository (được inject thông qua constructor)
      * 
@@ -59,7 +59,7 @@ public class TaskService {
     private final UserRepository userRepository;
     private final ProjectRepository projectRepository;
     
-// ==================== CREATE TASK ====================
+    // ==================== CREATE TASK ====================
     /**
      * Tạo task mới
      * 
@@ -145,7 +145,7 @@ public class TaskService {
         return response;
     }    
 
-// ==================== GET TASK BY ID ====================
+    // ==================== GET TASK BY ID ====================
     
     /**
      * Lấy task theo ID
@@ -205,46 +205,46 @@ public class TaskService {
         return response;
     }
 
-// ==================== UPDATE TASK ====================
+    // ==================== UPDATE TASK ====================
 
-/**
- * Cập nhật task hiện có
- * 
- * Business Flow:
- * 1. Tìm task theo ID (throw exception nếu không tồn tại)
- * 2. Validate assignee mới (nếu có)
- * 3. Validate project mới (nếu có)
- * 4. Apply business rules (status transition, completedAt)
- * 5. Cập nhật các trường được gửi lên (partial update)
- * 6. Lưu vào database
- * 7. Return TaskResponse
- * 
- * Business Rules:
- * - Task phải tồn tại trong database
- * - Chỉ update các field không null trong request
- * - Assignee mới phải tồn tại (nếu thay đổi)
- * - Project mới phải active (nếu thay đổi)
- * - Khi status chuyển sang COMPLETED, tự động set completedAt
- * - Khi status chuyển từ COMPLETED sang khác, xóa completedAt
- * 
- * @param id Task ID cần update
- * @param request UpdateTaskRequest với các field cần thay đổi
- * @return TaskResponse DTO với dữ liệu sau khi update
- * @throws TaskNotFoundException nếu task không tồn tại
- * @throws UserNotFoundException nếu assignee mới không tồn tại
- * @throws ProjectNotFoundException nếu project mới không tồn tại/inactive
- * 
- * Example Usage:
- * UpdateTaskRequest request = UpdateTaskRequest.builder()
- *     .status(TaskStatus.IN_PROGRESS)
- *     .priority(TaskPriority.HIGH)
- *     .build();
- * TaskResponse updated = taskService.updateTask(123L, request);
- */
+    /**
+     * Cập nhật task hiện có
+     * 
+     * Business Flow:
+     * 1. Tìm task theo ID (throw exception nếu không tồn tại)
+     * 2. Validate assignee mới (nếu có)
+     * 3. Validate project mới (nếu có)
+     * 4. Apply business rules (status transition, completedAt)
+     * 5. Cập nhật các trường được gửi lên (partial update)
+     * 6. Lưu vào database
+     * 7. Return TaskResponse
+     * 
+     * Business Rules:
+     * - Task phải tồn tại trong database
+     * - Chỉ update các field không null trong request
+     * - Assignee mới phải tồn tại (nếu thay đổi)
+     * - Project mới phải active (nếu thay đổi)
+     * - Khi status chuyển sang COMPLETED, tự động set completedAt
+     * - Khi status chuyển từ COMPLETED sang khác, xóa completedAt
+     * 
+     * @param id Task ID cần update
+     * @param request UpdateTaskRequest với các field cần thay đổi
+     * @return TaskResponse DTO với dữ liệu sau khi update
+     * @throws TaskNotFoundException nếu task không tồn tại
+     * @throws UserNotFoundException nếu assignee mới không tồn tại
+     * @throws ProjectNotFoundException nếu project mới không tồn tại/inactive
+     * 
+     * Example Usage:
+     * UpdateTaskRequest request = UpdateTaskRequest.builder()
+     *     .status(TaskStatus.IN_PROGRESS)
+     *     .priority(TaskPriority.HIGH)
+     *     .build();
+     * TaskResponse updated = taskService.updateTask(123L, request);
+     */
     public TaskResponse updateTask(Long id, UpdateTaskRequest request) {
         log.info("Updateing task: id={}", id);
 
-        // ========== STEP 1: Find Existing Task ==========
+    // ========== STEP 1: Find Existing Task ==========
 
         Task task = taskRepository.findById(id)
             .orElseThrow(() -> {
@@ -254,7 +254,7 @@ public class TaskService {
 
         log.debug("Found task for update: {}, title={}, status={}", task.getId(), task.getTitle(), task.getStatus());
      
-        // ========== STEP 2: Validate & Update Assignee ==========
+    // ========== STEP 2: Validate & Update Assignee ==========
         
         if (request.getAssigneeId() !=null) {
             // Chỉ query database nếu assignee thực sự thay đổi
@@ -273,7 +273,8 @@ public class TaskService {
                 log.debug("Assignee unchanged: id={}, skipping update");
             }
         }
-        // ========== STEP 3: Validate & Update Project (if provided) ==========
+
+    // ========== STEP 3: Validate & Update Project (if provided) ==========
         
         if (request.getProjectId() != null) {
            if (!task.getProject().getId().equals(request.getProjectId())) {
@@ -291,7 +292,7 @@ public class TaskService {
             }
         }
 
-        // ========== STEP 4: Update Basic Fields (partial update) ==========
+    // ========== STEP 4: Update Basic Fields (partial update) ==========
 
         if (request.getTitle() != null) {
             log.debug("Updating title: old='{}', new='{}'", task.getTitle(), request.getTitle());
@@ -324,7 +325,7 @@ public class TaskService {
             task.setNotes(request.getNotes());
         }
 
-        // ========== STEP 5: Update Status with Business Logic ==========
+    // ========== STEP 5: Update Status with Business Logic ==========
 
         if (request.getStatus() != null) {
             TaskStatus oldStatus = task.getStatus();
@@ -346,7 +347,7 @@ public class TaskService {
             task.setStatus(newStatus);
         }
 
-        // ========== STEP 6: Save to Database ==========
+    // ========== STEP 6: Save to Database ==========
         
         // JPA Dirty Checking: Hibernate tự động detect changes và generate UPDATE query
         // Không cần gọi repository.save() nếu đang trong @Transactional
@@ -355,7 +356,7 @@ public class TaskService {
 
         log.info("Task updated sucessfully: id={}, updatedAt={}", updatedTask.getId(), updatedTask.getUpdatedAt());
 
-        // ========== STEP 7: Convert to Response DTO ==========
+    // ========== STEP 7: Convert to Response DTO ==========
     
         // Trigger lazy loading trước khi transaction close
         updatedTask.getAssignee().getUsername();
@@ -368,8 +369,133 @@ public class TaskService {
         return response;
     }
 
+    // ==================== DELETE TASK ====================
 
-        // ==================== HELPER METHOD (OPTIONAL) ====================
+    /**
+     * Xóa task theo ID
+     * 
+     * Business Flow:
+     * 1. Tìm task theo ID (throw exception nếu không tồn tại)
+     * 2. Xóa task khỏi database
+     * 3. JPA tự động cascade delete comments và attachments
+     * 
+     * Business Rules:
+     * - Task phải tồn tại trong database
+     * - Cascade delete: Comments và Attachments sẽ bị xóa theo
+     * - Transaction rollback nếu có lỗi
+     * 
+     * Cascade Delete:
+     * - Task entity có @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+     * - Khi xóa Task, Hibernate tự động:
+     *   1. DELETE FROM comments WHERE task_id = ?
+     *   2. DELETE FROM attachments WHERE task_id = ?
+     *   3. DELETE FROM tasks WHERE id = ?
+     * 
+     * @param id Task ID cần xóa
+     * @throws TaskNotFoundException nếu task không tồn tại
+     * 
+     * Example Usage:
+     * taskService.deleteTask(123L);
+     * // Task #123, comments, và attachments đều bị xóa
+     * 
+     * HTTP Response:
+     * - Success: 204 No Content (không có body)
+     * - Task not found: 404 Not Found
+     */
+    public void deleteTask(Long id) {
+        log.info("Deleting task: id={}", id);
+
+        // ========== STEP 1: Validate Task Exists ==========
+    
+        Task task = taskRepository.findById(id)
+            .orElseThrow(() -> {
+                log.error("Task not found for deletion: id={}", id);
+                return new TaskNotFoundException(id);
+            });
+
+        log.debug("Found task to delete: id={}, title={}, commentCount={}, attachmentCount={}",
+            task.getId(),
+            task.getTitle(),
+            task.getComments() !=null ? task.getComments().size() : 0,
+            task.getAttachments() !=null ? task.getAttachments().size() : 0
+        );
+
+        // ========== STEP 2: Log Related Data (for audit) ==========
+
+        // Log để audit trail (biết task nào bị xóa)
+
+        if (task.getComments() != null && !task.getComments().isEmpty()) {
+            log.info("Task has {} comments that will be cascade deleted", task.getComments().size());
+        }
+
+        if (task.getAttachments() != null && !task.getAttachments().isEmpty()) {
+            log.info("Task has {} attachment that will be cascade deleted", task.getAttachments().size());
+        }
+
+        // ========== STEP 3: Delete Task ==========
+    
+        // JPA/Hibernate sẽ tự động:
+        // 1. DELETE FROM comments WHERE task_id = ?
+        // 2. DELETE FROM attachments WHERE task_id = ?
+        // 3. DELETE FROM tasks WHERE id = ?
+
+        taskRepository.delete(task);
+
+        log.info("Task deleted successfully: id={}, title={}", id, task.getTitle());
+
+        // Transaction commit tự động khi method kết thúc (@Transactional)
+        // Nếu có exception, transaction sẽ rollback
+    }
+
+    // ==================== SOFT DELETE ====================
+
+    /**
+     * Soft delete: Đánh dấu task đã xóa thay vì xóa thật
+     * 
+     * Ưu điểm:
+     * - Có thể khôi phục task đã xóa
+     * - Giữ lại lịch sử cho audit
+     * - An toàn hơn (tránh xóa nhầm)
+     * 
+     * Cần thêm:
+     * - Task entity: boolean deleted + LocalDateTime deletedAt
+     * - Repository: @Query filter deleted = false
+     * 
+     * @param id Task ID
+     */
+    public void softDeleteTask(Long id) {
+        log.info("Soft deleting task: id={}", id);
+
+        Task task = taskRepository.findById(id)
+            .orElseThrow(() -> new TaskNotFoundException(id));
+
+        // Save thay vi delete
+        task.softDelete(); // Đánh dấu deleted = true + set deletedAt
+
+        // Lưu lại
+        taskRepository.save(task);
+    }
+
+    /**
+     * Khôi phục task đã soft delete
+     * 
+     * @param id Task ID
+     */
+
+    public void restoreTask(Long id) {
+        log.info("Restoring soft deleted task: id={}", id);
+
+        // Cần custom query để tìm cả task đã deleted
+        Task task = taskRepository.findByIdIncludingDeleted(id)
+            .orElseThrow(() -> new TaskNotFoundException(id));
+        
+        // Khôi phục
+        task.restore(); // Đặt deleted = false + xóa deletedAt
+    
+        taskRepository.save(task);
+    }
+
+    // ==================== HELPER METHOD (OPTIONAL) ====================
     
     /**
      * Kiểm tra task có tồn tại không

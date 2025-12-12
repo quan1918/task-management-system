@@ -1,7 +1,12 @@
 package com.taskmanagement.repository;
 
 import com.taskmanagement.entity.Task;
+import com.taskmanagement.entity.User;
+
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -33,6 +38,20 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long>  {
+
+    /**
+     * Tìm task theo ID, BỎ QUA deleted flag
+     * 
+     * Dùng cho:
+     * - Restore task đã soft delete
+     * - Admin view (xem cả task đã xóa)
+     * - Audit/Report
+     * 
+     * @param id Task ID
+     * @return Optional<Task> (kể cả task đã deleted)
+     */
+    @Query("SELECT t FROM Task t WHERE t.id = :id")
+    Optional<Task> findByIdIncludingDeleted(Long id);
 
     // ==================== CÁC PHƯƠNG THỨC KẾ THỪA ====================
     //

@@ -335,6 +335,91 @@ public class TaskController {
         
         return ResponseEntity.ok(response);
     }
+
+    // ==================== DELETE TASK ENDPOINT ====================
+
+    /**
+     * Xóa task
+     * 
+     * Endpoint: DELETE /api/tasks/{id}
+     * 
+     * Request:
+     * - Method: DELETE
+     * - URL: /api/tasks/{id}
+     * - Path Variable: id (Long) - Task ID cần xóa
+     * - Authentication: Required (Basic Auth)
+     * - Body: Không có
+     * 
+     * Response:
+     * - Thành công: 204 No Content
+     *   - Không có body response
+     *   - Task, comments, và attachments đều bị xóa
+     * - Task không tồn tại: 404 Not Found
+     *   - Body: ErrorResponse "Task not found with ID: X"
+     * - Unauthorized: 401 Unauthorized
+     * - Server error: 500 Internal Server Error
+     * 
+     * Cascade Delete:
+     * - Xóa task sẽ tự động xóa:
+     *   1. Tất cả comments của task
+     *   2. Tất cả attachments của task
+     * - Nhờ JPA @OneToMany(cascade = CascadeType.ALL)
+     * 
+     * HTTP Status Codes:
+     * - 204 No Content: Xóa thành công, không trả body
+     * - 404 Not Found: Task không tồn tại
+     * - 401 Unauthorized: Chưa đăng nhập
+     * - 500 Internal Server Error: Lỗi server
+     * 
+     * Ví dụ Request:
+     * DELETE /api/tasks/123
+     * Authorization: Basic YWRtaW46YWRtaW4xMjM=
+     * 
+     * Ví dụ Response (Success - 204 No Content):
+     * HTTP/1.1 204 No Content
+     * (no body)
+     * 
+     * Ví dụ Response (Error - 404 Not Found):
+     * HTTP/1.1 404 Not Found
+     * Content-Type: application/json
+     * 
+     * {
+     *   "timestamp": "2025-12-09T18:00:00",
+     *   "status": 404,
+     *   "error": "Task Not Found",
+     *   "message": "Task not found with ID: 123",
+     *   "path": "/api/tasks/123"
+     * }
+     * 
+     * @param id Task ID cần xóa (từ path variable)
+     * @return ResponseEntity với 204 No Content
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
+
+        log.info("DELETE /api/tasks/{} - Deleting task", id);
+
+    // ========== STEP 1: Gọi Service (Business Logic) ==========
+    
+    // Service sẽ:
+    // 1. Validate task tồn tại (throw TaskNotFoundException nếu không)
+    // 2. Delete task + cascade delete comments & attachments
+    // 3. Commit transaction
+
+        taskService.deleteTask(id);
+
+        log.info("Task deleted successfuly: id={}", id);
+
+    // ========== STEP 2: Trả Response 204 No Content ==========
+    
+    // ResponseEntity.noContent():
+    // - Set status: 204 No Content
+    // - Không có body response
+    // - Đúng RESTful convention cho DELETE
+        
+        return ResponseEntity.noContent().build();
+    }
+
     // ==================== FUTURE ENDPOINTS ====================
 
 
@@ -348,17 +433,6 @@ public class TaskController {
     //         @RequestParam(required = false) Long assigneeId) {
     //     List<TaskResponse> tasks = taskService.getAllTasks(status, assigneeId);
     //     return ResponseEntity.ok(tasks);
-    // }
-
-
-    /**
-     * Xóa task
-     * DELETE /api/tasks/{id}
-     */
-    // @DeleteMapping("/{id}")
-    // public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
-    //     taskService.deleteTask(id);
-    //     return ResponseEntity.noContent().build();
     // }
 }
     
