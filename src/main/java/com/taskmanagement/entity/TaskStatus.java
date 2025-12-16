@@ -18,6 +18,9 @@ package com.taskmanagement.entity;
  */
 public enum TaskStatus {
     
+    /** Task chưa được giao cho ai */
+    UNASSIGNED("Unassigned", "Task has not been assigned to anyone"),
+    
     /**
      * Task đã được tạo nhưng chưa bắt đầu
      * Trạng thái khởi đầu của mọi task mới

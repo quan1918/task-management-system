@@ -2,9 +2,13 @@ package com.taskmanagement.repository;
 
 import com.taskmanagement.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.List;
 
 /**
  * UserRepository - Tầng truy cập dữ liệu cho thực thể User
@@ -30,6 +34,33 @@ import java.util.Optional;
  */
 @Repository
 public interface UserRepository extends JpaRepository<User, Long>{
+
+    /**
+     * Tìm user theo ID (bao gồm cả deleted users)
+     * Bypass @Where clause
+     */
+    @Query("SELECT u FROM User u WHERE u.id = :id")
+    Optional<User> findByIdIncludingDeleted(@Param("id") Long id);
+
+    /**
+     * Lấy tất cả deleted users
+     */
+    @Query("SELECT u FROM User u WHERE u.deleted = true")
+    List<User> findAllDeleted();
+
+    /**
+     * Đếm số projects mà user owns
+     */
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.owner.id = :userId")
+    long countOwnedProjects(@Param("userId") Long userId);
+
+    /**
+     * Hard delete user (bypass @SQLDelete)
+     * ⚠️ CHỈ DÙNG CHO CLEANUP JOB
+     */
+    @Modifying
+    @Query(value = "DELETE FROM users WHERE id = :#{#user.id}", nativeQuery = true)
+    void hardDelete(@Param("user") User user);
     // ==================== CÁC PHƯƠNG THỨC KẾ THỪA ====================
 //
 // Từ JpaRepository<User, Long>:

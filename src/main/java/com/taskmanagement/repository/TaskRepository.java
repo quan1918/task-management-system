@@ -2,11 +2,15 @@ package com.taskmanagement.repository;
 
 import com.taskmanagement.entity.Task;
 import com.taskmanagement.entity.User;
+import com.taskmanagement.entity.TaskStatus;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -53,6 +57,62 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
     @Query("SELECT t FROM Task t WHERE t.id = :id")
     Optional<Task> findByIdIncludingDeleted(Long id);
 
+     /**
+     * Tìm tất cả tasks được gán cho một user cụ thể
+     * 
+     * @param assigneeId User ID
+     * @return List các tasks của user đó
+     */
+    List<Task> findByAssigneeId(Long assigneeId);
+
+    /**
+     * Tìm tất cả tasks chưa được gán (assignee = NULL)
+     * 
+     * @return List các UNASSIGNED tasks
+     */
+    List<Task> findByAssigneeIsNull();
+
+    /**
+     * Đếm số tasks đang assigned cho một user
+     * 
+     * @param assigneeId User ID
+     * @return Số lượng tasks
+     */
+    long countByAssigneeId(Long assigneeId);   
+
+    /**
+     * Bulk update: Unassign tất cả tasks của một user
+     * 
+     * Business Logic:
+     * - Set assignee = NULL
+     * - Set status = UNASSIGNED
+     * 
+     * ✅ KHÔNG load entities vào memory
+     * ✅ KHÔNG trigger validation
+     * ✅ Execute trực tiếp 1 SQL UPDATE
+     * 
+     * Performance:
+     * - Thay vì N queries (loop save từng task)
+     * - Chỉ cần 1 query duy nhất
+     * - Tránh N+1 problem
+     * 
+     * @param userId User ID cần unassign tasks
+     * @return Số tasks đã được update
+     */
+    @Modifying
+    @Query("UPDATE Task t " +
+           "SET t.assignee = NULL, " +
+           "    t.status = com.taskmanagement.entity.TaskStatus.UNASSIGNED " +
+           "WHERE t.assignee.id = :userId")
+    int unassignTasksByUserId(@Param("userId") Long userId);
+
+    /**
+     * Tìm tất cả tasks có status = UNASSIGNED
+     * 
+     * @return List các UNASSIGNED tasks
+     */
+    List<Task> findByStatus(TaskStatus status);
+
     // ==================== CÁC PHƯƠNG THỨC KẾ THỪA ====================
     //
     // Từ JpaRepository<Task, Long>:
@@ -75,7 +135,6 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
 
     // Cho GET /api/tasks (liệt kê tất cả):
     // List<Task> findByProjectId(Long projectId);
-    // List<Task> findByAssigneeId(Long assigneeId);
 
     // Cho GET /api/tasks?status=PENDING:
     // List<Task> findByStatus(TaskStatus status);

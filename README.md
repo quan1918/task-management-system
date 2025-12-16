@@ -14,91 +14,156 @@
 
 ## Overview
 
-The **Task Management System** is an enterprise-grade application built using **Spring Boot 3.2** and **Clean Architecture** principles. It provides centralized task management with role-based access control, real-time collaboration, and comprehensive reporting.
+The **Task Management System** is an enterprise-grade application built using **Spring Boot 3.2** and **Clean Architecture** principles. It provides centralized task management for teams with support for task assignment, project organization, and comprehensive API endpoints.
 
 ### Core Characteristics
 - **Architecture:** Clean Architecture with clear separation of concerns
 - **Framework:** Spring Boot 3.2 with Java 17
 - **Database:** PostgreSQL with JPA/Hibernate ORM
-- **Security:** JWT-based stateless authentication + Spring Security RBAC
-- **API:** RESTful with OpenAPI/Swagger documentation
-- **Scalability:** Stateless design, connection pooling, optimized queries
-- **Monitoring:** Actuator endpoints for health checks and metrics
+- **Security:** Spring Security with Basic Authentication (JWT implementation ready for Phase 2)
+- **API:** RESTful API with comprehensive CRUD operations
+- **Current Features:** Task CRUD, User-Task assignment, Project-Task relationships
+- **Status:** MVP Phase - Core task management features implemented
+- **Monitoring:** Spring Boot Actuator for health checks
+
+### Currently Implemented Features
+✅ **Task Management:**
+  - Create tasks with assignee and project
+  - Get task by ID with full details (assignee, project)
+  - Update tasks (title, description, status, priority, assignee)
+  - Delete tasks (hard delete with cascade to comments/attachments)
+  
+✅ **Relationships:**
+  - Task → User (Many-to-One, assignee required)
+  - Task → Project (Many-to-One, project required)
+  - Task → Comments (One-to-Many with cascade delete)
+  - Task → Attachments (One-to-Many with cascade delete)
+
+✅ **Database:**
+  - PostgreSQL with proper indexes
+  - JPA entities with validation
+  - Lazy loading for performance
+
+### Planned Features (Not Yet Implemented)
+🔲 User Management API (GET /api/users)
+🔲 Project Management API
+🔲 Task filtering by assignee/project (GET /api/tasks?assigneeId=1)
+🔲 JWT Authentication & Authorization
+🔲 Remove assignee from task (allow null assignee)
+🔲 Soft delete support
+🔲 Task comments API
+🔲 File attachments API
+🔲 Event-driven notifications
 
 ---
 
 ## Project Structure
 
 ```
-task-management-system/
+java_project/                                 # Project root
 │
 ├── src/
 │   ├── main/
 │   │   ├── java/com/taskmanagement/          # Source code (Clean Architecture)
-│   │   │   ├── api/                          # Layer 1: Controllers (HTTP)
-│   │   │   │   └── [README.md]               # REST endpoint documentation
 │   │   │   │
-│   │   │   ├── service/                      # Layer 2: Business Logic
-│   │   │   │   └── [README.md]               # Service layer documentation
+│   │   │   ├── api/                          # ✅ Layer 1: REST Controllers
+│   │   │   │   ├── TaskController.java       # Task CRUD endpoints
+│   │   │   │   └── README.md                 # API documentation
 │   │   │   │
-│   │   │   ├── repository/                   # Layer 3: Data Access (JPA)
-│   │   │   │   └── [README.md]               # Repository interfaces
+│   │   │   ├── service/                      # ✅ Layer 2: Business Logic
+│   │   │   │   ├── TaskService.java          # Task business logic
+│   │   │   │   └── README.md                 # Service layer documentation
 │   │   │   │
-│   │   │   ├── entity/                       # Layer 4: Domain Models (Database)
-│   │   │   │   └── [README.md]               # JPA entity definitions
+│   │   │   ├── repository/                   # ✅ Layer 3: Data Access (JPA)
+│   │   │   │   ├── TaskRepository.java       # Task queries
+│   │   │   │   ├── UserRepository.java       # User validation
+│   │   │   │   ├── ProjectRepository.java    # Project validation
+│   │   │   │   └── README.md                 # Repository documentation
 │   │   │   │
-│   │   │   ├── dto/                          # Data Transfer Objects
-│   │   │   │   └── [README.md]               # Request/Response DTOs
+│   │   │   ├── entity/                       # ✅ Layer 4: Domain Models
+│   │   │   │   ├── Task.java                 # Task entity with relationships
+│   │   │   │   ├── User.java                 # User entity
+│   │   │   │   ├── Project.java              # Project entity
+│   │   │   │   ├── Comment.java              # Comment entity (cascade delete)
+│   │   │   │   ├── Attachment.java           # Attachment entity (cascade delete)
+│   │   │   │   ├── TaskStatus.java           # Status enum
+│   │   │   │   ├── TaskPriority.java         # Priority enum
+│   │   │   │   └── README.md                 # Entity documentation
 │   │   │   │
-│   │   │   ├── config/                       # Configuration Classes
-│   │   │   │   ├── SecurityConfig.java       # Spring Security & JWT setup
-│   │   │   │   ├── JpaConfig.java            # JPA/Hibernate configuration
-│   │   │   │   └── OpenApiConfig.java        # Swagger/OpenAPI documentation
+│   │   │   ├── dto/                          # ✅ Data Transfer Objects
+│   │   │   │   ├── request/
+│   │   │   │   │   ├── CreateTaskRequest.java  # POST /api/tasks
+│   │   │   │   │   └── UpdateTaskRequest.java  # PUT /api/tasks/{id}
+│   │   │   │   ├── response/
+│   │   │   │   │   └── TaskResponse.java       # Task response DTO
+│   │   │   │   └── README.md                   # DTO documentation
 │   │   │   │
-│   │   │   ├── security/                     # Security & JWT
-│   │   │   │   ├── JwtTokenProvider.java     # JWT token generation/validation
-│   │   │   │   └── JwtAuthenticationFilter.java  # JWT request filter
-│   │   │   │
-│   │   │   ├── exception/                    # Error Handling
+│   │   │   ├── exception/                    # ✅ Error Handling
 │   │   │   │   ├── GlobalExceptionHandler.java  # Centralized exception handling
-│   │   │   │   └── ErrorResponse.java        # Standard error response DTO
+│   │   │   │   ├── ErrorResponse.java           # Standard error format
+│   │   │   │   ├── TaskNotFoundException.java   # 404 for tasks
+│   │   │   │   ├── UserNotFoundException.java   # 404 for users
+│   │   │   │   ├── ProjectNotFoundException.java # 404 for projects
+│   │   │   │   └── README.md                    # Exception documentation
 │   │   │   │
-│   │   │   ├── event/                        # Event-Driven Architecture
-│   │   │   │   └── [README.md]               # Domain events and listeners
+│   │   │   ├── config/                       # ✅ Configuration
+│   │   │   │   ├── SecurityConfig.java       # Basic Auth (hardcoded users)
+│   │   │   │   └── README.md                 # Security configuration docs
 │   │   │   │
-│   │   │   ├── util/                         # Utility Classes
-│   │   │   │   └── Constants.java            # Application-wide constants
+│   │   │   ├── security/                     # 🔲 Placeholder (JWT - not implemented)
+│   │   │   │   └── README.md                 # JWT implementation plan
 │   │   │   │
-│   │   │   └── TaskManagementApplication.java  # Main Spring Boot Entry Point
+│   │   │   ├── util/                         # 🔲 Placeholder (no utilities yet)
+│   │   │   │   └── README.md                 # Utility plan
+│   │   │   │
+│   │   │   ├── event/                        # 🔲 Placeholder (no events yet)
+│   │   │   │   └── README.md                 # Event-driven architecture plan
+│   │   │   │
+│   │   │   └── TaskManagementApplication.java  # Main Spring Boot entry point
 │   │   │
 │   │   └── resources/
-│   │       ├── application.yml               # Spring Boot configuration (step-by-step)
-│   │       ├── db/
-│   │       │   └── migration/
-│   │       │       └── V1__initial_schema.sql  # Flyway database migrations
-│   │       └── [static/]                     # (Future) Frontend assets
+│   │       ├── application.yml               # Spring Boot configuration
+│   │       └── APPLICATION_YML_CONFIGURATION.md  # Configuration guide
 │   │
-│   └── test/
-│       ├── java/com/taskmanagement/          # Unit & integration tests
-│       │   ├── api/
-│       │   ├── service/
-│       │   ├── repository/
-│       │   └── security/
-│       │
-│       └── resources/                        # Test configuration
-│           └── application-test.yml
+│   └── test/                                 # 🔲 Tests not yet implemented
+│       └── java/com/taskmanagement/
 │
-├── pom.xml                                   # Maven build configuration
-├── .gitignore                                # Git ignore rules
-├── README.md                                 # This file
+├── target/                                   # Maven build output (generated)
+│   └── classes/                              # Compiled .class files
+│
+├── logs/                                     # Application logs (runtime)
+│   └── task-management.log
+│
+├── pom.xml                                   # Maven dependencies & build config
+├── README.md                                 # ⭐ This file - project overview
 ├── POM_CONFIGURATION.md                      # Detailed pom.xml explanation
-├── APPLICATION_YML_CONFIGURATION.md          # Detailed application.yml explanation
-├── BUSINESS_OVERVIEW.md                      # Business requirements & features
-├── ARCHITECTURE.md                           # Architecture deep dive
-│
-└── logs/                                     # Application logs (created at runtime)
-    └── task-management.log
+├── BUSINESS_OVERVIEW.md                      # Business requirements
+├── ARCHITECTURE.md                           # Architecture decisions
+└── .gitignore                                # Git ignore rules
 ```
+
+### Legend
+- ✅ **Implemented** - Code exists and functional
+- 🔲 **Placeholder** - Folder/file exists but no implementation yet
+- ⭐ **Documentation** - README or configuration files
+
+### What's Actually Implemented (v0.5.0)
+
+**Backend Code:**
+- Task CRUD operations (Create, Read, Update, Delete)
+- Entity relationships (Task ↔ User, Task ↔ Project, Task ↔ Comments/Attachments)
+- Request validation with Bean Validation
+- Exception handling with consistent error responses
+- Basic Authentication with hardcoded users
+
+**Not Yet Implemented:**
+- User/Project management APIs
+- JWT authentication
+- Task filtering and pagination
+- Utility classes
+- Event system
+- Unit/integration tests
+- Soft delete enforcement
 
 ---
 
@@ -689,7 +754,7 @@ Create tests in `src/test/`:
 ## Getting Started
 
 ### Prerequisites
-- **Java 17+** - Download from [adoptopenjdk.com](https://adoptopenjdk.net)
+- **Java 17+** - Download from [adoptopenjdk.net](https://adoptopenjdk.net)
 - **Maven 3.8+** - Download from [maven.apache.org](https://maven.apache.org)
 - **PostgreSQL 15+** - Download from [postgresql.org](https://www.postgresql.org)
 - **Git** - Download from [git-scm.com](https://git-scm.com)
@@ -699,40 +764,167 @@ Create tests in `src/test/`:
 1. **Clone the repository:**
    ```bash
    git clone <repository-url>
-   cd task-management-system
+   cd java_project
    ```
 
-2. **Setup PostgreSQL:**
+2. **Setup PostgreSQL Database:**
    ```bash
+   # Đăng nhập PostgreSQL
    psql -U postgres
-   postgres=# CREATE DATABASE task_management_dev;
+   
+   # Tạo database
+   postgres=# CREATE DATABASE task_db;
+   
+   # Tạo user (tùy chọn)
+   postgres=# CREATE USER task_user WITH PASSWORD 'task_password';
+   postgres=# GRANT ALL PRIVILEGES ON DATABASE task_db TO task_user;
    postgres=# \q
    ```
 
-3. **Build the project:**
+3. **Configure application.yml:**
+   ```yaml
+   # File: src/main/resources/application.yml
+   spring:
+     datasource:
+       url: jdbc:postgresql://localhost:5432/task_db
+       username: postgres  # Hoặc task_user
+       password: your_password
+     jpa:
+       hibernate:
+         ddl-auto: update  # Tự động tạo tables
+   ```
+
+4. **Build the project:**
    ```bash
    mvn clean compile
    ```
 
-4. **Run the application:**
+5. **Run the application:**
    ```bash
    mvn spring-boot:run
    ```
 
-5. **Access the application:**
-   - API Base: `http://localhost:8080/api`
-   - Swagger UI: `http://localhost:8080/api/swagger-ui.html`
-   - Health Check: `http://localhost:8080/api/actuator/health`
+6. **Verify application is running:**
+   - Health Check: http://localhost:8080/actuator/health
+   - Expected response: `{"status":"UP"}`
 
-### Configuration
-- **Development:** Edit `application.yml` - STEP 1 is enabled
-- **Production:** Set environment variables (DATABASE_URL, DATABASE_USER, DATABASE_PASSWORD)
+---
+
+## 🧪 API Testing with Postman
+
+A complete Postman collection is available for testing all API endpoints.
+
+### Quick Access
+
+[![Run in Postman](https://run.pstmn.io/button.svg)](https://www.postman.com/api-team-5375/workspace/api-workspace/request/37783257-eb670533-dc90-408b-ad08-732c7d8390e1?action=share&creator=37783257)
+
+**Collection includes:**
+- ✅ User Management API (GET, DELETE, RESTORE)
+- ✅ Task Management API (CRUD operations)
+- ✅ Pre-configured environment variables
+- ✅ Sample requests with test data
+- ✅ Authentication examples (Basic Auth)
+
+### Getting Started with Postman
+
+1. **Import Collection**
+   - Click the "Run in Postman" button above
+   - Or manually import from: [Postman Collection Link](https://www.postman.com/api-team-5375/workspace/api-workspace/request/37783257-eb670533-dc90-408b-ad08-732c7d8390e1?action=share&creator=37783257)
+
+2. **Configure Environment**
+   ```
+   BASE_URL: http://localhost:8080
+   USERNAME: admin
+   PASSWORD: admin
+   ```
+
+3. **Authentication**
+   - Type: Basic Auth
+   - Default credentials: `admin:admin`
+   - Credentials are pre-configured in collection
+
+📖 **Detailed testing guide:** See [docs/api-testing.md](docs/api-testing.md) (coming soon)
+
+---
+
+### Test API Endpoints (Manual)
+
+#### 1. Create a Task
+```bash
+POST http://localhost:8080/api/tasks
+Content-Type: application/json
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
+
+{
+  "title": "Fix login bug",
+  "description": "Users cannot login with special characters in password",
+  "priority": "HIGH",
+  "dueDate": "2025-12-20T17:00:00",
+  "estimatedHours": 8,
+  "assigneeId": 1,
+  "projectId": 1
+}
+```
+
+**Note:** Bạn cần tạo User và Project trước, hoặc dùng mock data có sẵn.
+
+#### 2. Get Task by ID
+```bash
+GET http://localhost:8080/api/tasks/1
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
+```
+
+#### 3. Update Task
+```bash
+PUT http://localhost:8080/api/tasks/1
+Content-Type: application/json
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
+
+{
+  "status": "IN_PROGRESS",
+  "assigneeId": 2
+}
+```
+
+#### 4. Delete Task
+```bash
+DELETE http://localhost:8080/api/tasks/1
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
+```
+
+### Configuration Files
+- **application.yml:** Database, JPA, Security configuration
+- **pom.xml:** Maven dependencies and build configuration
+- **POM_CONFIGURATION.md:** Detailed explanation of dependencies
+- **APPLICATION_YML_CONFIGURATION.md:** Configuration options explained
+
+### Troubleshooting
+
+**Issue:** Application fails to start with database connection error
+```
+Solution: Verify PostgreSQL is running and credentials in application.yml are correct
+psql -U postgres -c "SELECT version();"
+```
+
+**Issue:** Cannot create task - Foreign key violation
+```
+Solution: Ensure User and Project with the specified IDs exist in database
+INSERT INTO users (id, username, email, full_name) VALUES (1, 'john', 'john@example.com', 'John Doe');
+INSERT INTO projects (id, name, description) VALUES (1, 'Project Alpha', 'First project');
+```
+
+**Issue:** Port 8080 already in use
+```
+Solution: Change port in application.yml
+server:
+  port: 8081
+```
 
 ### Next Steps
-1. Read `POM_CONFIGURATION.md` to understand dependencies
-2. Read `APPLICATION_YML_CONFIGURATION.md` to understand configuration
-3. Review `BUSINESS_OVERVIEW.md` to understand features
-4. Start implementing entities in Step 1 of development workflow
+1. Review implemented features in [src/main/java/com/taskmanagement](src/main/java/com/taskmanagement "src/main/java/com/taskmanagement")
+2. Check API documentation in [api/README.md](src/main/java/com/taskmanagement/api/README.md "src/main/java/com/taskmanagement/api/README.md")
+3. Read entity relationships in [entity/README.md](src/main/java/com/taskmanagement/entity/README.md "src/main/java/com/taskmanagement/entity/README.md")
+4. Understand business logic in [service/README.md](src/main/java/com/taskmanagement/service/README.md "src/main/java/com/taskmanagement/service/README.md")
 
 ---
 
@@ -807,14 +999,134 @@ Examples:
 
 ---
 
+## API Endpoints Summary
+
+### Currently Implemented
+
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /api/tasks | Create new task | ✅ Implemented |
+| GET | /api/tasks/{id} | Get task by ID | ✅ Implemented |
+| PUT | /api/tasks/{id} | Update task | ✅ Implemented |
+| DELETE | /api/tasks/{id} | Delete task | ✅ Implemented |
+
+### Planned for Next Phase
+
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| GET | /api/tasks | List all tasks with filters | 🔲 Planned |
+| GET | /api/tasks?assigneeId=1 | Filter tasks by assignee | 🔲 Planned |
+| GET | /api/tasks?projectId=1 | Filter tasks by project | 🔲 Planned |
+| GET | /api/users/{id} | Get user by ID | 🔲 Planned |
+| GET | /api/users | List all users | 🔲 Planned |
+| POST | /api/users | Create user | 🔲 Planned |
+| GET | /api/projects/{id} | Get project details | 🔲 Planned |
+| POST | /api/projects | Create project | 🔲 Planned |
+
+---
+
+## Database Schema
+
+### Core Tables
+
+**tasks**
+- id (PK)
+- title
+- description
+- status (PENDING, IN_PROGRESS, BLOCKED, IN_REVIEW, COMPLETED, CANCELLED)
+- priority (LOW, MEDIUM, HIGH, CRITICAL)
+- assignee_id (FK → users, **NOT NULL currently**)
+- project_id (FK → projects, NOT NULL)
+- due_date
+- start_date
+- completed_at
+- estimated_hours
+- notes
+- created_at, updated_at
+
+**users**
+- id (PK)
+- username (unique)
+- email (unique)
+- full_name
+- password_hash
+- active
+- last_login_at
+- created_at, updated_at
+
+**projects**
+- id (PK)
+- name
+- description
+- active
+- created_at, updated_at
+
+**comments** (defined but not API exposed yet)
+- id (PK)
+- task_id (FK → tasks, CASCADE DELETE)
+- user_id (FK → users)
+- content
+- created_at, updated_at
+
+**attachments** (defined but not API exposed yet)
+- id (PK)
+- task_id (FK → tasks, CASCADE DELETE)
+- filename
+- file_path
+- file_size
+- mime_type
+- uploaded_by (FK → users)
+- created_at
+
+### Known Limitations
+⚠️ **assignee_id is currently NOT NULL** - Cannot create unassigned tasks or remove assignee
+⚠️ **No ON DELETE action for user FK** - Cannot delete user if they have assigned tasks
+⚠️ **No soft delete** - Deletes are permanent
+
+---
+
 ## Version History
 
-**v1.0.0 (2025-12-01)**
+**v0.5.0 (2025-12-14)**
+- ✅ Task CRUD operations implemented
+- ✅ Task-User-Project relationships working
+- ✅ Basic authentication with Spring Security
+- ✅ Exception handling with GlobalExceptionHandler
+- ✅ Database integration with PostgreSQL
+- ✅ Comprehensive logging
+- ⚠️ Known issue: Cannot remove assignee from task
+
+**v0.1.0 (2025-12-01)**
 - Initial project scaffold
 - Clean Architecture setup
 - Spring Boot 3.2 configuration
-- JWT authentication placeholders
-- API documentation setup
+- Entity definitions
+- Repository interfaces
+
+---
+
+## Known Issues & TODOs
+
+### Critical Issues
+1. **Assignee cannot be null** - Task entity requires assignee (optional=false, nullable=false)
+   - Impact: Cannot create unassigned tasks, cannot remove assignee
+   - Solution: Change to optional=true, nullable=true, add UNASSIGNED status
+
+2. **Cannot delete users with tasks** - Foreign key constraint blocks user deletion
+   - Impact: Users cannot be deactivated/removed if they have tasks
+   - Solution: Add ON DELETE SET NULL or soft delete users
+
+### Planned Improvements
+- [ ] Implement task filtering API (GET /api/tasks?assigneeId=1&projectId=2)
+- [ ] Add User management API (GET/POST /api/users)
+- [ ] Add Project management API
+- [ ] Support removing assignee from tasks
+- [ ] Implement soft delete for tasks
+- [ ] Add pagination and sorting
+- [ ] Implement JWT authentication
+- [ ] Add role-based access control (RBAC)
+- [ ] Event-driven notifications
+- [ ] File attachment upload API
 
 ---
 
@@ -828,9 +1140,11 @@ Examples:
 
 For questions, issues, or suggestions:
 - Create an issue in the repository
-- Contact the development team at [email]
+- Review documentation in package README files
+- Check [BUSINESS_OVERVIEW.md](BUSINESS_OVERVIEW.md "BUSINESS_OVERVIEW.md") for requirements
 
 ---
 
-**Last Updated:** December 1, 2025  
-**Status:** Project Skeleton Complete - Ready for Feature Implementation
+**Last Updated:** December 14, 2025  
+**Status:** MVP Phase - Core Task Management Operational  
+**Next Milestone:** Task Filtering & User Management APIs

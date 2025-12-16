@@ -1,1025 +1,660 @@
-﻿# Repository Layer (Data Access)
+# Repository Layer (Data Access)
 
-##  Overview
+## 📋 Overview
 
-The **Repository layer** defines the data access abstraction for the application. Using Spring Data JPA, repositories provide a clean interface for persisting and querying domain entities without exposing implementation details.
+**Purpose:** Data access layer using Spring Data JPA for entity persistence and queries.
 
-**Location:** \src/main/java/com/taskmanagement/repository/\
+**Location:** `src/main/java/com/taskmanagement/repository/`
 
-**Responsibility:** Implement data access operations, provide query methods, and manage entity persistence through Spring Data repositories
+**Pattern:** Repository Pattern with Spring Data JPA interfaces
 
----
-
-##  Core Responsibilities
-
-### 1. Entity Persistence
-- Save new entities to database
-- Update existing entities
-- Delete entities (hard and soft delete)
-- Batch operations for performance
-
-### 2. Query Operations
-- Find entities by ID
-- Find all entities with pagination and sorting
-- Find by specific fields (findByUsername, findByEmail, etc.)
-- Complex queries using @Query annotation
-
-### 3. Custom Query Methods
-- Derived query methods from method names
-- JPQL queries with @Query
-- Native SQL queries when needed
-- Query DSL for complex criteria
-
-### 4. Pagination and Sorting
-- Support Page and Slice for large datasets
-- Dynamic sorting with Sort objects
-- Pageable parameter handling
-- Count operations for totals
-
-### 5. Performance Optimization
-- Index usage for frequently queried fields
-- Lazy vs eager loading strategies
-- Query result caching
-- Batch fetching and query optimization
+**Current Status:**  
+✅ **MVP Phase** - Basic CRUD repositories implemented  
+🔲 **Future** - Custom queries, pagination, specifications
 
 ---
 
-##  Folder Structure
+## 📁 Current Structure
 
-\\\
+```
 repository/
- TaskRepository.java                    # Task data access
- UserRepository.java                    # User data access
- ProjectRepository.java                 # Project data access
- CommentRepository.java                 # Comment data access
- ProjectStatisticsRepository.java       # Read model repository
- EventStoreRepository.java              # Event sourcing repository
+├── TaskRepository.java          # ✅ Task data access (CRUD)
+├── UserRepository.java          # ✅ User data access (validation only)
+├── ProjectRepository.java       # ✅ Project data access (validation only)
+└── README.md                    # This file
+```
 
- custom/
-    TaskRepositoryCustom.java           # Custom task query interface
-    TaskRepositoryImpl.java              # Custom task query implementation
-    UserRepositoryCustom.java           # Custom user query interface
-    UserRepositoryImpl.java              # Custom user query implementation
-    BaseRepositoryCustom.java           # Base custom operations
-
- specification/
-    TaskSpecification.java              # JPA Criteria/Specifications
-    UserSpecification.java              # User specifications
-    ProjectSpecification.java           # Project specifications
-
- README.md                              # This file
-\\\
+**Note:** Only TaskRepository has active CRUD operations. User and Project repositories are currently used only for validation (checking existence).
 
 ---
 
-##  Basic Repository Interface
+## 🎯 Core Responsibilities
 
-### Standard JpaRepository
+### ✅ Currently Implemented
 
-\\\java
-/**
- * Spring Data JPA repository for Task entity
- * Provides standard CRUD and query operations
- * 
- * Extends JpaRepository which provides:
- * - save(Task)
- * - saveAll(Iterable<Task>)
- * - findById(Long)
- * - findAll()
- * - findAll(Pageable)
- * - delete(Task)
- * - deleteById(Long)
- * - count()
- * - exists(Long)
- */
-public interface TaskRepository extends JpaRepository<Task, Long> {
-    
-}
-\\\
+1. **Entity Persistence**
+   - Save new tasks
+   - Update existing tasks
+   - Delete tasks (hard delete)
+   
+2. **Basic Query Operations**
+   - Find by ID (findById)
+   - Check existence (existsById)
+   - Standard JpaRepository methods
+
+3. **Validation Support**
+   - Verify assignee exists before task creation
+   - Verify project exists before task creation
+
+### 🔲 Not Yet Implemented
+
+- Custom query methods (findByAssignee, findByProject, findByStatus)
+- Pagination and sorting
+- Soft delete filtering (queries ignore deleted flag)
+- Full-text search
+- Complex criteria queries
+- Batch operations
+- Query result caching
 
 ---
 
-##  Derived Query Methods
+## 1. TaskRepository
 
-Automatically generate queries from method names:
+**Location:** [TaskRepository.java](TaskRepository.java)
 
-\\\java
-/**
- * Derived query methods
- * Spring Data JPA generates the SQL based on method name
- */
+**Purpose:** Primary repository for Task CRUD operations
+
+### Interface Definition
+
+```java
+@Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
     
     /**
+     * Find task by ID including soft-deleted tasks
+     * (for admin/restore operations)
+     */
+    @Query("SELECT t FROM Task t WHERE t.id = :id")
+    Optional<Task> findByIdIncludingDeleted(Long id);
+    
+    /**
+     * Find tasks by assignee ID
+     */
+    List<Task> findByAssigneeId(Long assigneeId);
+    
+    /**
+     * Find tasks without assignee
+     */
+    List<Task> findByAssigneeIsNull();
+    
+    /**
+     * Count tasks by assignee
+     */
+    long countByAssigneeId(Long assigneeId);
+    
+    /**
      * Find tasks by status
-     * Generates: SELECT * FROM tasks WHERE status = ?1
      */
     List<Task> findByStatus(TaskStatus status);
     
     /**
-     * Find tasks by assignee
-     * Generates: SELECT * FROM tasks WHERE assignee_id = ?1
+     * Bulk unassign tasks - PERFORMANCE CRITICAL
+     * Sets assignee = NULL and status = UNASSIGNED
+     * Used when deleting user
      */
-    List<Task> findByAssignee(User assignee);
-    
-    /**
-     * Find tasks by project
-     * Generates: SELECT * FROM tasks WHERE project_id = ?1
-     */
-    List<Task> findByProject(Project project);
-    
-    /**
-     * Find tasks with pagination
-     * Returns Page object with pagination info
-     */
-    Page<Task> findByStatus(TaskStatus status, Pageable pageable);
-    
-    /**
-     * Find and sort tasks by due date
-     */
-    List<Task> findByStatusOrderByDueDateAsc(TaskStatus status);
-    
-    /**
-     * Find with multiple conditions (AND)
-     * Generates: SELECT * FROM tasks WHERE status = ?1 AND priority = ?2
-     */
-    List<Task> findByStatusAndPriority(TaskStatus status, TaskPriority priority);
-    
-    /**
-     * Find with OR condition
-     * Generates: SELECT * FROM tasks WHERE status = ?1 OR status = ?2
-     */
-    List<Task> findByStatusOrStatus(TaskStatus status1, TaskStatus status2);
-    
-    /**
-     * Find with NOT condition
-     * Generates: SELECT * FROM tasks WHERE status != ?1
-     */
-    List<Task> findByStatusNot(TaskStatus status);
-    
-    /**
-     * Find with LIKE (case-insensitive search)
-     * Generates: SELECT * FROM tasks WHERE LOWER(title) LIKE LOWER(CONCAT('%', ?1, '%'))
-     */
-    List<Task> findByTitleContainingIgnoreCase(String titlePart);
-    
-    /**
-     * Find with comparison operators
-     * Generates: SELECT * FROM tasks WHERE due_date >= ?1
-     */
-    List<Task> findByDueDateGreaterThanEqual(LocalDateTime dueDate);
-    
-    /**
-     * Find with BETWEEN
-     * Generates: SELECT * FROM tasks WHERE created_at BETWEEN ?1 AND ?2
-     */
-    List<Task> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
-    
-    /**
-     * Find with IN
-     * Generates: SELECT * FROM tasks WHERE status IN (?1)
-     */
-    List<Task> findByStatusIn(List<TaskStatus> statuses);
-    
-    /**
-     * Check existence
-     * Generates: SELECT COUNT(*) > 0 FROM tasks WHERE id = ?1
-     */
-    boolean existsByIdAndStatus(Long id, TaskStatus status);
-    
-    /**
-     * Count by condition
-     * Generates: SELECT COUNT(*) FROM tasks WHERE status = ?1
-     */
-    long countByStatus(TaskStatus status);
-    
-    /**
-     * Delete by condition
-     * Generates: DELETE FROM tasks WHERE status = ?1
-     */
-    void deleteByStatus(TaskStatus status);
+    @Modifying
+    @Query("UPDATE Task t " +
+           "SET t.assignee = NULL, " +
+           "    t.status = com.taskmanagement.entity.TaskStatus.UNASSIGNED " +
+           "WHERE t.assignee.id = :userId")
+    int unassignTasksByUserId(@Param("userId") Long userId);
 }
-\\\
+```
+
+**New Methods Explained:**
+
+1. **findByAssigneeId(Long assigneeId)**
+   - Find all tasks assigned to a user
+   - Used for: User dashboard, task listing
+
+2. **findByAssigneeIsNull()**
+   - Find unassigned tasks (UNASSIGNED status)
+   - Used for: Admin view, task assignment UI
+
+3. **countByAssigneeId(Long assigneeId)**
+   - Count user's tasks
+   - Used for: Pre-delete validation, statistics
+
+4. **findByStatus(TaskStatus status)**
+   - Find tasks by status (PENDING, IN_PROGRESS, UNASSIGNED, etc.)
+   - Used for: Filtering, reporting
+
+5. **unassignTasksByUserId() ⭐ CRITICAL**
+   - **Bulk update:** Unassign ALL tasks in 1 query
+   - Set assignee = NULL, status = UNASSIGNED
+   - Returns: number of updated tasks
+   - **Performance:** O(1) instead of O(N)
+   - **No entity loading:** Bypasses Hibernate cache
+   - **No validation triggers:** Avoids @FutureOrPresent issues
+
+### Inherited Methods (from JpaRepository)
+
+Spring Data JPA provides these methods automatically:
+
+```java
+// CREATE
+Task save(Task task);                     // Insert or update
+List<Task> saveAll(Iterable<Task> tasks); // Batch save
+
+// READ
+Optional<Task> findById(Long id);         // Find by primary key
+List<Task> findAll();                     // Find all tasks
+boolean existsById(Long id);              // Check existence
+long count();                             // Count total tasks
+
+// UPDATE
+// (Use save() method - if ID exists, it updates)
+
+// DELETE
+void delete(Task task);                   // Delete entity
+void deleteById(Long id);                 // Delete by ID
+void deleteAll();                         // Delete all tasks
+```
+
+### Usage Examples
+
+**1. Create Task**
+```java
+Task task = Task.builder()
+    .title("New Task")
+    .assignee(user)
+    .project(project)
+    .build();
+
+Task saved = taskRepository.save(task);  // Returns task with ID
+```
+
+**2. Find Task**
+```java
+Optional<Task> taskOpt = taskRepository.findById(123L);
+Task task = taskOpt.orElseThrow(() -> new TaskNotFoundException(123L));
+```
+
+**3. Update Task**
+```java
+Task task = taskRepository.findById(123L).orElseThrow();
+task.setTitle("Updated Title");
+taskRepository.save(task);  // JPA detects ID exists → UPDATE
+```
+
+**4. Delete Task**
+```java
+Task task = taskRepository.findById(123L).orElseThrow();
+taskRepository.delete(task);  // Hard delete (cascade to comments/attachments)
+```
+
+### Current Limitations
+
+✅ **Implemented Features:**
+- ✅ Custom query methods (findByAssigneeId, findByStatus, findByAssigneeIsNull)
+- ✅ Bulk operations (unassignTasksByUserId)
+- ✅ Count queries (countByAssigneeId)
+
+❌ **Missing Features:**
+- No pagination support
+- Soft delete defined but not filtered in queries (Task doesn't use @Where)
+- No full-text search
+- No complex criteria queries
+
+🔲 **Planned Custom Methods:**
+```java
+// Will be added in future:
+Page<Task> findByAssigneeId(Long assigneeId, Pageable pageable);
+List<Task> findByProjectId(Long projectId);
+List<Task> findByStatus(TaskStatus status);
+Page<Task> findAll(Pageable pageable);
+List<Task> findOverdueTasks();
+```
 
 ---
 
-##  Custom @Query Methods
+## 2. UserRepository
 
-For complex queries, use @Query annotation:
+**Location:** [UserRepository.java](UserRepository.java)
 
-\\\java
-/**
- * Custom queries using @Query annotation
- * JPQL (Java Persistence Query Language)
- */
-public interface TaskRepository extends JpaRepository<Task, Long> {
-    
-    /**
-     * Find tasks by project with sorting
-     */
-    @Query("SELECT t FROM Task t WHERE t.project.id = :projectId ORDER BY t.createdAt DESC")
-    List<Task> findByProjectIdOrdered(@Param("projectId") Long projectId);
-    
-    /**
-     * Find overdue tasks
-     * Uses LocalDateTime.now() for comparison
-     */
-    @Query("SELECT t FROM Task t WHERE t.dueDate < CURRENT_TIMESTAMP AND t.status != 'COMPLETED'")
-    List<Task> findOverdueTasks();
-    
-    /**
-     * Count tasks by status for a project
-     */
-    @Query("SELECT COUNT(t) FROM Task t WHERE t.project.id = :projectId AND t.status = :status")
-    long countByProjectAndStatus(@Param("projectId") Long projectId, @Param("status") TaskStatus status);
-    
-    /**
-     * Find tasks with related data (JOIN FETCH for eager loading)
-     * Prevents N+1 queries
-     */
-    @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.assignee LEFT JOIN FETCH t.comments WHERE t.project.id = :projectId")
-    List<Task> findByProjectIdWithRelations(@Param("projectId") Long projectId);
-    
-    /**
-     * Find tasks assigned to user with pagination
-     */
-    @Query("SELECT t FROM Task t WHERE t.assignee.id = :assigneeId AND t.status IN (:statuses)")
-    Page<Task> findUserTasksByStatus(
-        @Param("assigneeId") Long assigneeId,
-        @Param("statuses") List<TaskStatus> statuses,
-        Pageable pageable
-    );
-    
-    /**
-     * Complex query with subquery
-     */
-    @Query("SELECT t FROM Task t WHERE t.id IN (SELECT c.task.id FROM Comment c WHERE c.author.id = :userId)")
-    List<Task> findTasksWithCommentsByUser(@Param("userId") Long userId);
-    
-    /**
-     * Projection - select specific columns only
-     */
-    @Query("SELECT new com.taskmanagement.dto.response.TaskSummary(t.id, t.title, t.status) FROM Task t WHERE t.project.id = :projectId")
-    List<TaskSummary> findTaskSummaries(@Param("projectId") Long projectId);
-    
-    /**
-     * Native SQL query for performance-critical operations
-     */
-    @Query(value = "SELECT t.* FROM tasks t JOIN projects p ON t.project_id = p.id WHERE p.active = true ORDER BY t.due_date ASC LIMIT :limit", nativeQuery = true)
-    List<Task> findActiveProjectTasksNative(@Param("limit") int limit);
-    
-    /**
-     * Update query using @Modifying
-     */
-    @Modifying
-    @Transactional
-    @Query("UPDATE Task t SET t.status = :newStatus WHERE t.id = :taskId")
-    void updateTaskStatus(@Param("taskId") Long taskId, @Param("newStatus") TaskStatus newStatus);
-    
-    /**
-     * Delete query using @Modifying
-     */
-    @Modifying
-    @Transactional
-    @Query("DELETE FROM Task t WHERE t.project.id = :projectId AND t.status = :status")
-    void deleteProjectTasksByStatus(@Param("projectId") Long projectId, @Param("status") TaskStatus status);
-}
-\\\
+**Purpose:** User data access with soft delete support
 
----
+### Interface Definition
 
-##  Example Repository Implementations
-
-### User Repository
-
-\\\java
-/**
- * Repository for User entity
- * Provides authentication and user lookup operations
- */
+```java
+@Repository
 public interface UserRepository extends JpaRepository<User, Long> {
     
     /**
-     * Find user by username for login
+     * Find user by ID including soft-deleted users
+     * Bypasses @Where(clause = "deleted = false") filter
      */
-    Optional<User> findByUsername(String username);
+    @Query("SELECT u FROM User u WHERE u.id = :id")
+    Optional<User> findByIdIncludingDeleted(@Param("id") Long id);
     
     /**
-     * Find user by email
+     * Find all deleted users
      */
-    Optional<User> findByEmail(String email);
+    @Query("SELECT u FROM User u WHERE u.deleted = true")
+    List<User> findAllDeleted();
     
     /**
-     * Check if username already exists
+     * Count projects owned by user
      */
-    boolean existsByUsername(String username);
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.owner.id = :userId")
+    long countOwnedProjects(@Param("userId") Long userId);
     
     /**
-     * Check if email already exists
-     */
-    boolean existsByEmail(String email);
-    
-    /**
-     * Find all active users with pagination
-     */
-    Page<User> findByActiveTrue(Pageable pageable);
-    
-    /**
-     * Find users by role
-     */
-    @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName")
-    List<User> findByRole(@Param("roleName") String roleName);
-    
-    /**
-     * Find users in a project
-     */
-    @Query("SELECT u FROM User u JOIN u.projects p WHERE p.id = :projectId")
-    List<User> findByProjectId(@Param("projectId") Long projectId);
-    
-    /**
-     * Search users by name (case-insensitive)
-     */
-    List<User> findByFullNameContainingIgnoreCase(String namePart);
-    
-    /**
-     * Find user by username with roles eager loaded
-     */
-    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.roles WHERE u.username = :username")
-    Optional<User> findByUsernameWithRoles(@Param("username") String username);
-    
-    /**
-     * Update last login timestamp
+     * Hard delete user from database
+     * ⚠️ DANGEROUS - Bypasses @SQLDelete annotation
+     * Use only for cleanup jobs
      */
     @Modifying
-    @Transactional
-    @Query("UPDATE User u SET u.lastLoginAt = CURRENT_TIMESTAMP WHERE u.id = :userId")
-    void updateLastLogin(@Param("userId") Long userId);
+    @Query(value = "DELETE FROM users WHERE id = :#{#user.id}", nativeQuery = true)
+    void hardDelete(@Param("user") User user);
 }
-\\\
+```
 
-### Project Repository
+**Methods Explained:**
 
-\\\java
-/**
- * Repository for Project entity
- */
+1. **findByIdIncludingDeleted(Long id)**
+   - Bypass @Where clause
+   - Find user even if deleted = true
+   - Used for: DELETE and RESTORE operations
+   - Why needed: Standard findById() filters deleted users
+
+2. **findAllDeleted()**
+   - Get all soft-deleted users
+   - Used for: Admin view, cleanup jobs, reporting
+
+3. **countOwnedProjects(Long userId)**
+   - Count projects owned by user
+   - Used for: Pre-delete logging, statistics
+   - Business rule: Projects preserved when user deleted
+
+4. **hardDelete(User user) ⚠️ DANGEROUS**
+   - Physical DELETE from database
+   - Bypasses @SQLDelete annotation
+   - **WARNING:** Breaks data integrity
+   - Use case: ONLY for cleanup jobs
+
+### Current Usage
+
+**UserService Operations:**
+```java
+// Get active user
+User user = userRepository.findById(id)
+    .orElseThrow(() -> new UserNotFoundException(id));
+
+// Get user for delete/restore (including deleted)
+User user = userRepository.findByIdIncludingDeleted(id)
+    .orElseThrow(() -> new UserNotFoundException(id));
+
+// Count resources before delete
+long projectCount = userRepository.countOwnedProjects(userId);
+```
+
+**@Where Clause Behavior:**
+```java
+// User entity has: @Where(clause = "deleted = false")
+
+// This ONLY returns active users:
+userRepository.findById(1L);       // Returns empty if deleted
+userRepository.findAll();          // Excludes deleted users
+
+// This returns ALL users (bypasses @Where):
+userRepository.findByIdIncludingDeleted(1L);  // Returns even if deleted
+```
+
+### Current Limitations
+
+✅ **Implemented Features:**
+- ✅ User CRUD operations (GET, DELETE, RESTORE)
+- ✅ Soft delete support with @Where filtering
+- ✅ Resource counting queries
+
+❌ **Missing Features:**
+- No User CREATE operation (POST /api/users)
+- No User UPDATE operation (PUT /api/users/{id})
+- No username/email lookup
+- No search/filter methods
+
+🔲 **Planned Features:**
+```java
+// Will be added in future:
+Optional<User> findByUsername(String username);
+Optional<User> findByEmail(String email);
+List<User> findByFullNameContaining(String name);
+Page<User> findAll(Pageable pageable);
+```
+
+---
+
+## 3. ProjectRepository
+
+**Location:** [ProjectRepository.java](ProjectRepository.java)
+
+**Purpose:** Validation only - verifies projects exist before task creation
+
+### Interface Definition
+
+```java
+@Repository  
 public interface ProjectRepository extends JpaRepository<Project, Long> {
-    
-    /**
-     * Find active projects with pagination
-     */
-    Page<Project> findByActiveTrue(Pageable pageable);
-    
-    /**
-     * Find projects by name
-     */
-    Optional<Project> findByName(String name);
-    
-    /**
-     * Find all projects for a user
-     */
-    @Query("SELECT p FROM Project p JOIN p.members u WHERE u.id = :userId")
-    List<Project> findByMemberId(@Param("userId") Long userId);
-    
-    /**
-     * Count active projects
-     */
-    long countByActiveTrue();
-    
-    /**
-     * Find project with statistics
-     */
-    @Query("SELECT p FROM Project p WHERE p.id = :projectId")
-    Optional<Project> findByIdWithStats(@Param("projectId") Long projectId);
+    // No custom methods yet
+    // Uses inherited methods only
 }
-\\\
+```
+
+### Current Usage
+
+**Validation Before Task Creation:**
+```java
+// In TaskService.createTask()
+Project project = projectRepository.findById(request.getProjectId())
+    .orElseThrow(() -> new ProjectNotFoundException(request.getProjectId()));
+```
+
+**Methods Used:**
+- `findById(Long id)` - Verify project exists
+- `existsById(Long id)` - Quick existence check
+
+### Current Limitations
+
+❌ **No Project Management:**
+- No Project CRUD API
+- No ProjectController exists
+- Projects must exist in database for testing
+
+🔲 **Planned Features:**
+```java
+// Will be added when Project management is implemented:
+Optional<Project> findByName(String name);
+List<Project> findByOwnerId(Long ownerId);
+List<Project> findActiveProjects();
+```
 
 ---
 
-##  Pagination and Sorting
+## 4. CommentRepository ✅ NEW
 
-### Using Pageable
+**Location:** [CommentRepository.java](CommentRepository.java)
 
-\\\java
-/**
- * Pageable parameter provides pagination and sorting
- */
-@Service
-public class TaskService {
-    
-    private final TaskRepository taskRepository;
-    
-    /**
-     * Find all tasks with pagination
-     * Example request: GET /api/tasks?page=0&size=10&sort=createdAt,desc
-     */
-    public Page<TaskResponse> listTasks(Pageable pageable) {
-        return taskRepository.findAll(pageable)
-            .map(TaskResponse::from);
-    }
-    
-    /**
-     * Find tasks by status with pagination
-     * Example: Pageable pageable = PageRequest.of(0, 10, Sort.by("dueDate").ascending());
-     */
-    public Page<TaskResponse> listTasksByStatus(TaskStatus status, Pageable pageable) {
-        return taskRepository.findByStatus(status, pageable)
-            .map(TaskResponse::from);
-    }
-    
-    /**
-     * Custom pagination in controller
-     */
-    @GetMapping
-    public ResponseEntity<Page<TaskResponse>> getTasks(
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        @RequestParam(defaultValue = "createdAt") String sortBy,
-        @RequestParam(defaultValue = "DESC") Sort.Direction direction
-    ) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-        Page<Task> tasks = taskRepository.findAll(pageable);
-        
-        return ResponseEntity.ok(tasks.map(TaskResponse::from));
-    }
-}
-\\\
+**Purpose:** Data access for Comment entity
 
-### Sort Specification
+### Interface Definition
 
-\\\java
-/**
- * Sort specification for ordering results
- */
-// Sort by single field
-Sort sort = Sort.by("createdAt").descending();
-
-// Sort by multiple fields
-Sort sort = Sort.by()
-    .ascending().by("status")
-    .descending().by("dueDate");
-
-// Using PageRequest with sort
-Pageable pageable = PageRequest.of(0, 10, sort);
-Page<Task> tasks = taskRepository.findAll(pageable);
-
-// Dynamic sorting
-Sort.Direction direction = Sort.Direction.fromString("DESC");
-Pageable pageable = PageRequest.of(0, 10, Sort.by(direction, "createdAt"));
-\\\
-
----
-
-##  Custom Repository Implementation
-
-### For Complex Queries
-
-\\\java
-/**
- * Custom repository interface for additional operations
- */
-public interface TaskRepositoryCustom {
-    
-    /**
-     * Complex search with multiple criteria
-     */
-    List<Task> findByComplexCriteria(TaskSearchCriteria criteria);
-    
-    /**
-     * Dynamic query builder
-     */
-    List<Task> findTasksDynamically(Map<String, Object> filters);
-}
-
-/**
- * Implementation using EntityManager and Criteria API
- */
+```java
 @Repository
-public class TaskRepositoryImpl implements TaskRepositoryCustom {
+public interface CommentRepository extends JpaRepository<Comment, Long> {
     
-    @PersistenceContext
-    private EntityManager entityManager;
+    /**
+     * Count comments by author
+     */
+    long countByAuthorId(Long authorId);
     
-    @Override
-    public List<Task> findByComplexCriteria(TaskSearchCriteria criteria) {
-        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-        CriteriaQuery<Task> query = cb.createQuery(Task.class);
-        Root<Task> root = query.from(Task.class);
-        
-        List<Predicate> predicates = new ArrayList<>();
-        
-        // Build predicates based on criteria
-        if (criteria.getStatus() != null) {
-            predicates.add(cb.equal(root.get("status"), criteria.getStatus()));
-        }
-        
-        if (criteria.getPriority() != null) {
-            predicates.add(cb.equal(root.get("priority"), criteria.getPriority()));
-        }
-        
-        if (criteria.getAssigneeId() != null) {
-            Join<Task, User> assigneeJoin = root.join("assignee");
-            predicates.add(cb.equal(assigneeJoin.get("id"), criteria.getAssigneeId()));
-        }
-        
-        if (criteria.getFromDate() != null && criteria.getToDate() != null) {
-            predicates.add(cb.between(
-                root.get("dueDate"),
-                criteria.getFromDate(),
-                criteria.getToDate()
-            ));
-        }
-        
-        // Combine predicates with AND
-        query.where(cb.and(predicates.toArray(new Predicate[0])));
-        
-        return entityManager.createQuery(query).getResultList();
-    }
+    /**
+     * Find comments by author
+     */
+    List<Comment> findByAuthorId(Long authorId);
     
-    @Override
-    public List<Task> findTasksDynamically(Map<String, Object> filters) {
-        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-        CriteriaQuery<Task> query = cb.createQuery(Task.class);
-        Root<Task> root = query.from(Task.class);
-        
-        List<Predicate> predicates = new ArrayList<>();
-        
-        // Dynamically add predicates based on provided filters
-        filters.forEach((key, value) -> {
-            if (value != null) {
-                switch (key) {
-                    case "status":
-                        predicates.add(cb.equal(root.get("status"), value));
-                        break;
-                    case "priority":
-                        predicates.add(cb.equal(root.get("priority"), value));
-                        break;
-                    case "titleContains":
-                        predicates.add(cb.like(root.get("title"), "%" + value + "%"));
-                        break;
-                    case "assigneeId":
-                        predicates.add(cb.equal(root.get("assignee").get("id"), value));
-                        break;
-                }
-            }
-        });
-        
-        query.where(cb.and(predicates.toArray(new Predicate[0])));
-        
-        return entityManager.createQuery(query).getResultList();
-    }
+    /**
+     * Find comments by task
+     */
+    List<Comment> findByTaskId(Long taskId);
+    
+    /**
+     * Count comments by task
+     */
+    long countByTaskId(Long taskId);
 }
+```
 
-/**
- * Extend both JpaRepository and custom interface
- */
-public interface TaskRepository extends JpaRepository<Task, Long>, TaskRepositoryCustom {
-    
-}
-\\\
+**Methods Explained:**
+
+1. **countByAuthorId(Long authorId)**
+   - Count comments written by user
+   - Used for: UserService.deleteUser() logging
+   - Business rule: Comments preserved when user deleted (audit trail)
+
+2. **findByAuthorId(Long authorId)**
+   - Get all comments by author
+   - Used for: User activity view
+
+3. **findByTaskId(Long taskId)**
+   - Get all comments for a task
+   - Used for: Task detail view
+
+4. **countByTaskId(Long taskId)**
+   - Count comments on a task
+   - Used for: Task statistics
+
+### Current Usage
+
+**UserService - Count Comments:**
+```java
+// Before deleting user, count their comments
+long commentCount = commentRepository.countByAuthorId(userId);
+log.info("User {} has {} comments", userId, commentCount);
+
+// Comments are PRESERVED (not deleted/anonymized)
+// Reason: Audit trail, historical record
+```
+
+**Business Rule - Comments Preserved:**
+- When user deleted → comments kept
+- author_id remains (NOT NULL constraint)
+- Allows historical tracking
+- Audit trail compliance
+
+### Current Limitations
+
+✅ **Implemented Features:**
+- ✅ Basic query methods (count, find by author/task)
+
+❌ **Missing Features:**
+- No Comment CRUD API
+- No CommentController exists
+- No CommentService exists
+- Cannot create/update/delete comments via API
+- No pagination support
+
+🔲 **Planned Features:**
+```java
+// Will be added when Comment management is implemented:
+Page<Comment> findByTaskId(Long taskId, Pageable pageable);
+Page<Comment> findByAuthorId(Long authorId, Pageable pageable);
+List<Comment> findRecentComments(LocalDateTime since);
+```
 
 ---
 
-##  Specifications Pattern (JPA Criteria)
+## ⚠️ Known Issues & Limitations
 
-\\\java
-/**
- * Specification for Task entity
- * Provides reusable predicates for complex queries
- */
-public class TaskSpecification {
-    
-    /**
-     * Specification for task status
-     */
-    public static Specification<Task> hasStatus(TaskStatus status) {
-        return (root, query, cb) -> cb.equal(root.get("status"), status);
-    }
-    
-    /**
-     * Specification for priority
-     */
-    public static Specification<Task> hasPriority(TaskPriority priority) {
-        return (root, query, cb) -> cb.equal(root.get("priority"), priority);
-    }
-    
-    /**
-     * Specification for assignee
-     */
-    public static Specification<Task> assignedTo(Long userId) {
-        return (root, query, cb) -> cb.equal(root.get("assignee").get("id"), userId);
-    }
-    
-    /**
-     * Specification for project
-     */
-    public static Specification<Task> inProject(Long projectId) {
-        return (root, query, cb) -> cb.equal(root.get("project").get("id"), projectId);
-    }
-    
-    /**
-     * Specification for title search
-     */
-    public static Specification<Task> titleContains(String titlePart) {
-        return (root, query, cb) -> cb.like(
-            cb.lower(root.get("title")),
-            "%" + titlePart.toLowerCase() + "%"
-        );
-    }
-    
-    /**
-     * Specification for due date range
-     */
-    public static Specification<Task> dueDateBetween(LocalDateTime from, LocalDateTime to) {
-        return (root, query, cb) -> cb.between(root.get("dueDate"), from, to);
-    }
-    
-    /**
-     * Specification for overdue tasks
-     */
-    public static Specification<Task> isOverdue() {
-        return (root, query, cb) -> cb.and(
-            cb.lessThan(root.get("dueDate"), LocalDateTime.now()),
-            cb.notEqual(root.get("status"), TaskStatus.COMPLETED)
-        );
-    }
-}
+### 1. Soft Delete Not Enforced
 
-/**
- * Repository extending JpaSpecificationExecutor
- */
-public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
-    
-}
+**Problem:**
+- Task entity has `deleted` and `deletedAt` fields
+- Standard queries don't filter deleted tasks
 
-/**
- * Usage of specifications
- */
-@Service
-public class TaskService {
-    
-    private final TaskRepository taskRepository;
-    
-    /**
-     * Combine multiple specifications with AND
-     */
-    public List<Task> searchTasks(TaskSearchCriteria criteria) {
-        Specification<Task> spec = Specification
-            .where(TaskSpecification.inProject(criteria.getProjectId()))
-            .and(TaskSpecification.hasStatus(criteria.getStatus()))
-            .and(TaskSpecification.hasPriority(criteria.getPriority()));
-        
-        return taskRepository.findAll(spec);
-    }
-    
-    /**
-     * Search with pagination
-     */
-    public Page<Task> searchTasksWithPagination(TaskSearchCriteria criteria, Pageable pageable) {
-        Specification<Task> spec = Specification
-            .where(TaskSpecification.inProject(criteria.getProjectId()))
-            .and(TaskSpecification.hasStatus(criteria.getStatus()));
-        
-        return taskRepository.findAll(spec, pageable);
-    }
-    
-    /**
-     * Find overdue tasks for a project
-     */
-    public List<Task> findOverdueTasks(Long projectId) {
-        Specification<Task> spec = Specification
-            .where(TaskSpecification.inProject(projectId))
-            .and(TaskSpecification.isOverdue());
-        
-        return taskRepository.findAll(spec);
-    }
-}
-\\\
+**Current Behavior:**
+```java
+List<Task> tasks = taskRepository.findAll();  // ❌ Returns deleted tasks too
+```
 
----
+**Impact:**
+- Deleted tasks appear in results
+- Need manual filtering in service layer
+- Or use custom `findByIdIncludingDeleted()` method
 
-##  Best Practices
+**Solution (Future):**
+```java
+// Add to all query methods:
+@Query("SELECT t FROM Task t WHERE t.deleted = false")
+List<Task> findAllActive();
 
-### 1. Use Derived Queries First
-
-\\\java
-// GOOD: Simple derived query
-List<Task> findByStatus(TaskStatus status);
-
-// GOOD: Paginated derived query
-Page<Task> findByStatus(TaskStatus status, Pageable pageable);
-
-// BAD: Unnecessary @Query for simple case
-@Query("SELECT t FROM Task t WHERE t.status = :status")
-List<Task> findByStatus(@Param("status") TaskStatus status);
-\\\
-
-### 2. Use JOIN FETCH to Prevent N+1 Queries
-
-\\\java
-// GOOD: Eager load related data
-@Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.assignee LEFT JOIN FETCH t.comments WHERE t.project.id = :projectId")
-List<Task> findByProjectId(@Param("projectId") Long projectId);
-
-// BAD: Causes N+1 queries
-List<Task> findByProjectId(Long projectId);
-// Then accessing t.getAssignee() triggers additional queries
-\\\
-
-### 3. Use Projections for Performance
-
-\\\java
-// GOOD: Only select needed columns
-@Query("SELECT new com.taskmanagement.dto.TaskSummary(t.id, t.title, t.status) FROM Task t WHERE t.project.id = :projectId")
-List<TaskSummary> findTaskSummaries(@Param("projectId") Long projectId);
-
-// BAD: Load entire entity when only some fields needed
-List<Task> findByProjectId(Long projectId);
-\\\
-
-### 4. Always Use @Transactional for Write Operations
-
-\\\java
-// GOOD: @Transactional on update/delete operations
-@Modifying
-@Transactional
-@Query("UPDATE Task t SET t.status = :status WHERE t.id = :id")
-void updateStatus(@Param("id") Long id, @Param("status") TaskStatus status);
-
-// BAD: Missing @Transactional
-@Modifying
-@Query("UPDATE Task t SET t.status = :status WHERE t.id = :id")
-void updateStatus(@Param("id") Long id, @Param("status") TaskStatus status);
-\\\
-
-### 5. Use Named Parameters
-
-\\\java
-// GOOD: Named parameters are clearer
-@Query("SELECT t FROM Task t WHERE t.status = :status AND t.priority = :priority")
-List<Task> findByStatusAndPriority(
-    @Param("status") TaskStatus status,
-    @Param("priority") TaskPriority priority
-);
-
-// BAD: Positional parameters are error-prone
-@Query("SELECT t FROM Task t WHERE t.status = ?1 AND t.priority = ?2")
-List<Task> findByStatusAndPriority(TaskStatus status, TaskPriority priority);
-\\\
-
-### 6. Use Pagination for Large Result Sets
-
-\\\java
-// GOOD: Pagination for large datasets
-Page<Task> findByStatus(TaskStatus status, Pageable pageable);
-
-// BAD: Loading all records
-List<Task> findByStatus(TaskStatus status);
-\\\
-
-### 7. Create Indexes for Frequently Queried Fields
-
-\\\java
+// Or use @Where annotation on entity:
+@Where(clause = "deleted = false")
 @Entity
-@Table(
-    name = "tasks",
-    indexes = {
-        @Index(name = "idx_status", columnList = "status"),
-        @Index(name = "idx_assignee_id", columnList = "assignee_id"),
-        @Index(name = "idx_project_id", columnList = "project_id"),
-        @Index(name = "idx_created_at", columnList = "created_at")
-    }
-)
-public class Task extends BaseEntity {
-    // Fields...
-}
-\\\
+public class Task { ... }
+```
 
-### 8. Use Specifications for Complex Filtering
+### 2. No Custom Query Methods
 
-\\\java
-// GOOD: Composable specifications
-Specification<Task> spec = Specification
-    .where(TaskSpecification.hasStatus(criteria.getStatus()))
-    .and(TaskSpecification.inProject(criteria.getProjectId()));
+**Missing Features:**
+```java
+// These don't exist yet:
+List<Task> findByAssigneeId(Long assigneeId);
+List<Task> findByProjectId(Long projectId);
+List<Task> findByStatus(TaskStatus status);
+Page<Task> findAll(Pageable pageable);
+```
 
-Page<Task> result = taskRepository.findAll(spec, pageable);
+**Workaround:**
+- Use TaskService to filter in memory (not efficient)
+- Or add custom queries when needed
 
-// BAD: Multiple custom query methods
-List<Task> findByStatusAndProjectId(TaskStatus status, Long projectId);
-List<Task> findByStatusAndProjectIdAndPriority(TaskStatus status, Long projectId, TaskPriority priority);
-// Combinatorial explosion of methods
-\\\
+### 3. No Pagination Support
+
+**Current:**
+```java
+List<Task> findAll();  // Returns ALL tasks (performance issue for large datasets)
+```
+
+**Needed:**
+```java
+Page<Task> findAll(Pageable pageable);
+Page<Task> findByProjectId(Long projectId, Pageable pageable);
+```
 
 ---
 
-##  Common Query Patterns
+## 📚 Spring Data JPA Reference
 
-### Search with Filters
+### Standard JpaRepository Methods
 
-\\\java
-/**
- * Complex search with multiple optional filters
- */
-@Query("SELECT t FROM Task t WHERE "
-    + "(:status IS NULL OR t.status = :status) "
-    + "AND (:priority IS NULL OR t.priority = :priority) "
-    + "AND (:assigneeId IS NULL OR t.assignee.id = :assigneeId) "
-    + "AND (:projectId IS NULL OR t.project.id = :projectId) "
-    + "AND (:titleContains IS NULL OR LOWER(t.title) LIKE LOWER(CONCAT('%', :titleContains, '%')))")
-List<Task> searchTasks(
-    @Param("status") TaskStatus status,
-    @Param("priority") TaskPriority priority,
-    @Param("assigneeId") Long assigneeId,
-    @Param("projectId") Long projectId,
-    @Param("titleContains") String titleContains
-);
-\\\
+Every repository extending `JpaRepository<Entity, ID>` inherits:
 
-### Aggregation Queries
+```java
+// CREATE/UPDATE
+<S extends T> S save(S entity);
+<S extends T> List<S> saveAll(Iterable<S> entities);
 
-\\\java
-/**
- * Count and statistics queries
- */
-@Query("SELECT COUNT(t) FROM Task t WHERE t.status = :status AND t.project.id = :projectId")
-long countByStatusAndProject(@Param("status") TaskStatus status, @Param("projectId") Long projectId);
+// READ
+Optional<T> findById(ID id);
+boolean existsById(ID id);
+List<T> findAll();
+List<T> findAllById(Iterable<ID> ids);
+long count();
 
-@Query("SELECT new map(t.status AS status, COUNT(t) AS count) FROM Task t WHERE t.project.id = :projectId GROUP BY t.status")
-List<Map<String, Object>> countTasksByStatus(@Param("projectId") Long projectId);
-\\\
+// DELETE
+void delete(T entity);
+void deleteById(ID id);
+void deleteAll();
+void deleteAll(Iterable<? extends T> entities);
+void deleteAllById(Iterable<? extends ID> ids);
 
-### Batch Operations
+// FLUSH
+void flush();
+<S extends T> S saveAndFlush(S entity);
+void deleteAllInBatch();
+```
 
-\\\java
-/**
- * Batch insert for performance
- */
+### How save() Works
+
+```java
+Task task = new Task();
+task.setTitle("New Task");
+taskRepository.save(task);  // ✅ INSERT (id is null)
+
+Task existing = taskRepository.findById(1L).get();
+existing.setTitle("Updated");
+taskRepository.save(existing);  // ✅ UPDATE (id exists)
+```
+
+### Transaction Management
+
+```java
+@Transactional  // Required for write operations
+public void updateTask() {
+    Task task = taskRepository.findById(1L).get();
+    task.setTitle("New Title");
+    // Auto-saved at transaction commit (no need to call save())
+}
+
+@Transactional(readOnly = true)  // Optimized for reads
+public Task getTask(Long id) {
+    return taskRepository.findById(id).orElseThrow();
+}
+```
+
+---
+
+## 🔮 Planned Enhancements
+
+### Phase 1: Custom Query Methods
+```java
 @Repository
-@Transactional
-public class TaskBatchRepository {
-    
-    private final TaskRepository taskRepository;
-    private final EntityManager entityManager;
-    
-    public void batchInsertTasks(List<Task> tasks, int batchSize) {
-        for (int i = 0; i < tasks.size(); i++) {
-            taskRepository.save(tasks.get(i));
-            
-            if ((i + 1) % batchSize == 0) {
-                entityManager.flush();
-                entityManager.clear();
-            }
-        }
-    }
+public interface TaskRepository extends JpaRepository<Task, Long> {
+    List<Task> findByAssigneeId(Long assigneeId);
+    List<Task> findByProjectId(Long projectId);
+    List<Task> findByStatus(TaskStatus status);
+    List<Task> findByAssigneeIdAndStatus(Long assigneeId, TaskStatus status);
 }
-\\\
+```
 
----
+### Phase 2: Pagination & Sorting
+```java
+Page<Task> findAll(Pageable pageable);
+Page<Task> findByProjectId(Long projectId, Pageable pageable);
+Page<Task> findByAssigneeId(Long assigneeId, Pageable pageable);
 
-##  Testing Repositories
+// Usage:
+Pageable pageable = PageRequest.of(0, 20, Sort.by("createdAt").descending());
+Page<Task> page = taskRepository.findAll(pageable);
+```
 
-### Unit Testing Repositories
+### Phase 3: Complex Queries
+```java
+@Query("SELECT t FROM Task t WHERE t.dueDate < CURRENT_TIMESTAMP AND t.status != 'COMPLETED'")
+List<Task> findOverdueTasks();
 
-\\\java
-@DataJpaTest  // Only loads JPA components
-class TaskRepositoryTest {
-    
-    @Autowired
-    private TaskRepository taskRepository;
-    
-    @Autowired
-    private TestEntityManager entityManager;
-    
-    @Test
-    void findByStatus_WithPendingTasks_ReturnsPendingTasks() {
-        // Arrange
-        Task task1 = Task.builder()
-            .title("Task 1")
-            .status(TaskStatus.PENDING)
-            .build();
-        Task task2 = Task.builder()
-            .title("Task 2")
-            .status(TaskStatus.COMPLETED)
-            .build();
-        
-        entityManager.persist(task1);
-        entityManager.persist(task2);
-        entityManager.flush();
-        
-        // Act
-        List<Task> result = taskRepository.findByStatus(TaskStatus.PENDING);
-        
-        // Assert
-        assertEquals(1, result.size());
-        assertEquals("Task 1", result.get(0).getTitle());
-    }
-    
-    @Test
-    void findByStatusWithPagination_WithMultipleTasks_ReturnsPage() {
-        // Create 25 tasks
-        for (int i = 1; i <= 25; i++) {
-            Task task = Task.builder()
-                .title("Task " + i)
-                .status(TaskStatus.PENDING)
-                .build();
-            entityManager.persist(task);
-        }
-        entityManager.flush();
-        
-        // Request page 0 with size 10
-        Page<Task> result = taskRepository.findByStatus(
-            TaskStatus.PENDING,
-            PageRequest.of(0, 10)
-        );
-        
-        assertEquals(10, result.getContent().size());
-        assertEquals(3, result.getTotalPages());
-        assertEquals(25, result.getTotalElements());
-        assertTrue(result.isFirst());
-        assertFalse(result.isLast());
-    }
+@Query("SELECT t FROM Task t WHERE t.deleted = false AND " +
+       "(LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+       "LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+List<Task> searchTasks(@Param("keyword") String keyword);
+```
+
+### Phase 4: Specifications (Dynamic Queries)
+```java
+// For complex filtering scenarios
+public interface TaskRepository extends JpaRepository<Task, Long>, 
+                                       JpaSpecificationExecutor<Task> {
 }
-\\\
+
+// Usage:
+Specification<Task> spec = TaskSpecifications.withAssignee(userId)
+    .and(TaskSpecifications.withStatus(TaskStatus.IN_PROGRESS))
+    .and(TaskSpecifications.dueBefore(LocalDateTime.now()));
+    
+Page<Task> results = taskRepository.findAll(spec, pageable);
+```
 
 ---
 
-##  Repository Checklist
+## 📖 Related Documentation
 
-When creating repositories:
-
-- [ ] Extend JpaRepository or appropriate interface
-- [ ] Use derived query methods for simple cases
-- [ ] Use @Query for complex queries
-- [ ] Use JOIN FETCH to prevent N+1 queries
-- [ ] Include indexes on frequently queried fields
-- [ ] Use Specifications for complex filtering
-- [ ] Implement pagination for large datasets
-- [ ] Use named parameters in queries
-- [ ] Add @Transactional to write operations
-- [ ] Use projections for performance
-- [ ] Document complex query methods
-- [ ] Write repository tests
-- [ ] Consider custom repository implementations
-- [ ] Use batch operations for bulk inserts
-- [ ] Profile queries for performance
+- [Task Entity](../entity/README.md) - Domain model definition
+- [TaskService](../service/README.md) - Business logic layer
+- [TaskController](../api/README.md) - REST API endpoints
 
 ---
 
-##  Related Documentation
-
-- **ARCHITECTURE.md** - Data access architecture
-- **README.md** - Main project overview
-- **Entity Layer** - Domain entities and relationships
-- **Service Layer** - Business logic using repositories
-
----
-
-##  Quick Reference
-
-### Derived Query Keywords
-
-\\\
-And, Or                   AND, OR
-Between                   BETWEEN
-GreaterThan, LessThan     >, <
-GreaterThanEqual, LessThanEqual  >=, <=
-IsNull, IsNotNull         IS NULL, IS NOT NULL
-Like                      LIKE
-In, NotIn                 IN, NOT IN
-Distinct                  DISTINCT
-OrderBy                   ORDER BY
-Containing, StartsWith, EndsWith  LIKE patterns
-IgnoreCase                LOWER()
-\\\
-
-### @Query Example Patterns
-
-\\\
-SELECT - Query data
-UPDATE - Modify data (@Modifying required)
-DELETE - Remove data (@Modifying required)
-COUNT  - Count results
-LEFT JOIN FETCH - Eager load relationships
-GROUP BY - Aggregate results
-ORDER BY - Sort results
-WHERE - Filter results
-DISTINCT - Remove duplicates
-\\\
-
-### Pageable Usage
-
-\\\
-PageRequest.of(pageNumber, pageSize)
-PageRequest.of(pageNumber, pageSize, sort)
-Pageable pageable = PageRequest.of(0, 20, Sort.by("createdAt").descending())
-Page<T> - Get page with total count
-Slice<T> - Get slice without total count
-List<T> - Get all results (avoid for large datasets)
-\\\
-
----
-
-**Last Updated:** December 1, 2025  
-**Version:** 1.0.0  
-**Status:** Complete
+**Last Updated:** December 14, 2025  
+**Version:** 0.5.0 - MVP Phase  
+**Status:** Basic repositories complete, custom queries pending

@@ -4,9 +4,30 @@
 
 The **Entity layer** defines the core domain model of the application. Entities represent persistent domain concepts (tasks, users, projects) that are stored in the database using JPA and Hibernate ORM.
 
-**Location:** \src/main/java/com/taskmanagement/entity/\
+**Location:** `src/main/java/com/taskmanagement/entity/`
 
 **Responsibility:** Define domain entities with proper JPA mappings, relationships, validation, and auditing
+
+---
+
+##  Current Implementation Status
+
+### ✅ Fully Implemented Entities
+- **Task.java** - Core task entity with full relationships
+- **User.java** - User entity (referenced by Task)
+- **Project.java** - Project entity (referenced by Task)
+- **Comment.java** - Comment entity (One-to-Many with Task)
+- **Attachment.java** - Attachment entity (One-to-Many with Task)
+- **TaskStatus.java** - Task status enumeration
+- **TaskPriority.java** - Task priority enumeration
+
+### 🔧 Implementation Notes
+- Task entity **NOW ALLOWS nullable assignee** (optional = true) - supports UNASSIGNED status
+- Project remains **REQUIRED** (NOT NULL constraint)
+- **User soft delete fully implemented** with @SQLDelete and @Where annotations
+- Task assignee can be NULL (when user deleted or unassigned)
+- Comment and Attachment entities defined but **no API endpoints** yet
+- Project entity defined but **no management API** yet
 
 ---
 
@@ -44,22 +65,21 @@ The **Entity layer** defines the core domain model of the application. Entities 
 
 ---
 
-##  Folder Structure
+##  Entity Files
 
-\\\
+```
 entity/
- Task.java              # Main task domain entity
- User.java              # User entity with roles
- Project.java           # Project entity
- Comment.java           # Comment on tasks
- Attachment.java        # File attachment on tasks
- BaseEntity.java        # Base class with common fields
- TaskStatus.java        # Task status enumeration
- TaskPriority.java      # Task priority enumeration
- UserRole.java          # User role enumeration
- AuditListener.java     # JPA audit listener
- README.md              # This file
-\\\
+├── Task.java              ✅ Main task domain entity
+├── User.java              ✅ User entity (assignee)
+├── Project.java           ✅ Project entity
+├── Comment.java           ✅ Comment entity (cascade delete with Task)
+├── Attachment.java        ✅ File attachment entity (cascade delete)
+├── TaskStatus.java        ✅ Task status enumeration (PENDING, IN_PROGRESS, etc.)
+├── TaskPriority.java      ✅ Task priority enumeration (LOW, MEDIUM, HIGH, CRITICAL)
+└── README.md              📄 This file
+```
+
+**Note:** No BaseEntity or AuditListener - entities use direct `@CreationTimestamp` and `@UpdateTimestamp`
 
 ---
 
@@ -105,38 +125,37 @@ public abstract class BaseEntity {
 }
 \\\
 
-### Basic Entity Example
+### Task Entity - Complete Structure
 
-\\\java
-/**
- * Task entity representing a work item to be completed
- * 
- * Relationships:
- * - Many-to-One with User (assignee)
- * - Many-to-One with Project (belongs to)
- * - One-to-Many with Comment (receives comments)
- * - One-to-Many with Attachment (contains files)
- */
+```java
 @Entity
 @Table(
     name = "tasks",
-    uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"project_id", "external_id"})
-    },
     indexes = {
-        @Index(name = "idx_user_status", columnList = "assignee_id, status"),
-        @Index(name = "idx_project_id", columnList = "project_id"),
-        @Index(name = "idx_created_at", columnList = "created_at")
+        @Index(name = "idx_task_status", columnList = "status"),
+        @Index(name = "idx_task_priority", columnList = "priority"),
+        @Index(name = "idx_task_assignee", columnList = "assignee_id"),
+        @Index(name = "idx_task_project", columnList = "project_id"),
+        @Index(name = "idx_task_due_date", columnList = "due_date"),
+        @Index(name = "idx_task_assignee_status", columnList = "assignee_id, status"),
+        @Index(name = "idx_task_deleted", columnList = "deleted"),
+        @Index(name = "idx_task_deleted_at", columnList = "deleted_at")
     }
 )
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Task extends BaseEntity {
+public class Task {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    // ========== CORE FIELDS ==========
     
     @NotBlank(message = "Task title is required")
-    @Size(min = 3, max = 255, message = "Title must be between 3 and 255 characters")
+    @Size(min = 3, max = 255)
     @Column(nullable = false, length = 255)
     private String title;
     
@@ -148,55 +167,72 @@ public class Task extends BaseEntity {
     @NotNull(message = "Task status is required")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private TaskStatus status;
+    @Builder.Default
+    private TaskStatus status = TaskStatus.PENDING;
     
     @NotNull(message = "Task priority is required")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private TaskPriority priority;
+    @Builder.Default
+    private TaskPriority priority = TaskPriority.MEDIUM;
     
     @NotNull(message = "Due date is required")
-    @FutureOrPresent(message = "Due date must be in the future or today")
+    @FutureOrPresent
     @Column(nullable = false)
     private LocalDateTime dueDate;
     
-    @Size(max = 500)
-    @Column(length = 500)
+    @Column
+    private LocalDateTime startDate;
+    
+    @Column
+    private LocalDateTime completedAt;
+    
+    @Min(0)
+    @Max(999)
+    @Column
+    private Integer estimatedHours;
+    
+    @Size(max = 1000)
+    @Column(length = 1000)
     private String notes;
     
-    // Optional external task ID for integration
-    @Column(length = 50)
-    private String externalId;
-    
-    // ==================== RELATIONSHIPS ====================
+    // ========== RELATIONSHIPS ==========
     
     /**
-     * Many-to-One relationship with User
-     * Task is assigned to a user
-     * 
-     * Fetch: LAZY - Load assignee only when accessed
-     * Cascade: NONE - Cannot delete user when deleting task
+     * Many-to-One: Task → User (assignee)
+     * ✅ NOW OPTIONAL (optional=true, nullable=true)
+     * Allows UNASSIGNED tasks and user deletion with auto-unassignment
      */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "assignee_id", nullable = false)
-    @NotNull(message = "Assignee is required")
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "assignee_id", nullable = true)
+    @OnDelete(action = OnDeleteAction.SET_NULL)  // DB: ON DELETE SET NULL
     private User assignee;
     
     /**
-     * Many-to-One relationship with Project
-     * Task belongs to a project
-     * 
-     * Fetch: LAZY - Load project only when accessed
-     * Cascade: NONE - Project is managed independently
+     * Many-to-One: Task → Project
+     * REQUIRED - Task must belong to a project
      */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "project_id", nullable = false)
-    @NotNull(message = "Project is required")
+    @NotNull(message = "Task project is required")
     private Project project;
     
     /**
-     * One-to-Many relationship with Comment
-     * Task can have multiple comments
+     * One-to-Many: Task → Comments
+     * Cascade ALL + orphanRemoval - deleting task deletes comments
+     */
+    @OneToMany(
+        mappedBy = "task",
+        cascade = CascadeType.ALL,
+        fetch = FetchType.LAZY,
+        orphanRemoval = true
+    )
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
+    
+    /**
+     * One-to-Many: Task → Attachments
+     * Cascade ALL + orphanRemoval - deleting task deletes attachments
      * 
      * Cascade: ALL - Comments are deleted when task is deleted
      * Fetch: LAZY - Load comments only when explicitly accessed
@@ -745,12 +781,13 @@ public class AuditorAwareImpl implements AuditorAware<String> {
 
 \\\java
 public enum TaskStatus {
-    PENDING("Pending"),
-    IN_PROGRESS("In Progress"),
-    COMPLETED("Completed"),
-    BLOCKED("Blocked"),
-    CANCELLED("Cancelled"),
-    DELETED("Deleted");
+    UNASSIGNED("Unassigned"),      // ✅ NEW: Task has no assignee
+    PENDING("Pending"),             // Not started yet (has assignee)
+    IN_PROGRESS("In Progress"),     // Currently being worked on
+    COMPLETED("Completed"),         // Finished
+    BLOCKED("Blocked"),             // Waiting on dependency
+    CANCELLED("Cancelled"),         // No longer needed
+    DELETED("Deleted");             // Soft deleted
     
     private final String displayName;
     
@@ -763,6 +800,19 @@ public enum TaskStatus {
     }
 }
 \\\
+
+**UNASSIGNED Status - NEW Feature:**
+- **Purpose:** Mark tasks without assignee
+- **Set when:** User deleted → tasks auto-unassigned
+- **Difference from PENDING:** 
+  - PENDING = has assignee, not started
+  - UNASSIGNED = no assignee, needs assignment
+- **Status Flow:**
+  ```
+  User deleted → Tasks: assignee=NULL, status=UNASSIGNED
+  Admin reassigns → status: UNASSIGNED → PENDING
+  Normal flow → PENDING → IN_PROGRESS → COMPLETED
+  ```
 
 ### Task Priority
 
@@ -1447,8 +1497,366 @@ When creating new entities:
 @Email                        Email format
 \\\
 
+    @OneToMany(
+        mappedBy = "task",
+        cascade = CascadeType.ALL,
+        fetch = FetchType.LAZY,
+        orphanRemoval = true
+    )
+    @Builder.Default
+    private List<Attachment> attachments = new ArrayList<>();
+    
+    // ========== SOFT DELETE ==========
+    
+    @Column(name = "deleted", nullable = false)
+    @Builder.Default
+    private boolean deleted = false;
+    
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+    
+    // ========== AUDIT FIELDS ==========
+    
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+    
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+    
+    // ========== BUSINESS METHODS ==========
+    
+    public void assignTo(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
+        this.assignee = user;
+    }
+    
+    public boolean isAssignedTo(User user) {
+        return user != null && this.assignee != null 
+            && this.assignee.getId().equals(user.getId());
+    }
+    
+    public void complete() {
+        this.status = TaskStatus.COMPLETED;
+        this.completedAt = LocalDateTime.now();
+    }
+    
+    public boolean isOverdue() {
+        return LocalDateTime.now().isAfter(this.dueDate) 
+            && this.status != TaskStatus.COMPLETED;
+    }
+    
+    // Soft delete methods
+    public void softDelete() {
+        this.deleted = true;
+        this.deletedAt = LocalDateTime.now();
+    }
+    
+    public void restore() {
+        this.deleted = false;
+        this.deletedAt = null;
+    }
+}
+```
+
 ---
 
-**Last Updated:** December 1, 2025  
-**Version:** 1.0.0  
-**Status:** Complete
+## Task Entity Key Details
+
+### Database Table: `tasks`
+
+**Indexes for Performance:**
+- `idx_task_assignee_status` - Query tasks by assignee and status
+- `idx_task_project` - Query tasks by project
+- `idx_task_due_date` - Query overdue tasks
+- `idx_task_deleted` - Filter out soft-deleted tasks
+
+### Relationships Explained
+
+#### 1. Task → User (Assignee) - Many-to-One
+
+**Current Implementation:**
+```java
+@ManyToOne(fetch = FetchType.LAZY, optional = false)
+@JoinColumn(name = "assignee_id", nullable = false)
+@NotNull
+private User assignee;
+```
+
+**What this means:**
+- ✅ Every task MUST have an assignee (NOT NULL constraint)
+- ✅ Lazy loading - assignee loaded only when accessed
+- ❌ **Cannot create unassigned tasks**
+- ❌ **Cannot remove assignee from task**
+- ❌ **Cannot delete user if they have tasks** (foreign key violation)
+
+**Database:**
+```sql
+CREATE TABLE tasks (
+    assignee_id BIGINT NOT NULL,
+    FOREIGN KEY (assignee_id) REFERENCES users(id)
+    -- No ON DELETE action = RESTRICT (blocks user deletion)
+);
+```
+
+#### 2. Task → Project - Many-to-One
+
+**Implementation:**
+```java
+@ManyToOne(fetch = FetchType.LAZY, optional = false)
+@JoinColumn(name = "project_id", nullable = false)
+@NotNull
+private Project project;
+```
+
+**What this means:**
+- ✅ Every task MUST belong to a project
+- ✅ Lazy loading for performance
+- ❌ Cannot delete project if it has tasks
+
+#### 3. Task → Comments - One-to-Many
+
+**Implementation:**
+```java
+@OneToMany(
+    mappedBy = "task",
+    cascade = CascadeType.ALL,
+    orphanRemoval = true
+)
+private List<Comment> comments;
+```
+
+**What this means:**
+- ✅ Task can have multiple comments
+- ✅ **Deleting task deletes all comments** (CASCADE ALL)
+- ✅ Removing comment from list deletes it (orphanRemoval)
+- ✅ Comments belong to task (mappedBy = "task")
+
+#### 4. Task → Attachments - One-to-Many
+
+Same behavior as comments - cascade delete.
+
+---
+
+## TaskStatus Enum
+
+```java
+public enum TaskStatus {
+    PENDING,      // Task created, waiting to start
+    IN_PROGRESS,  // Actively being worked on
+    BLOCKED,      // Cannot proceed due to dependency
+    IN_REVIEW,    // Waiting for code review/approval
+    COMPLETED,    // Finished successfully
+    CANCELLED     // Task cancelled/obsolete
+}
+```
+
+**Default:** New tasks are `PENDING`
+
+---
+
+## TaskPriority Enum
+
+```java
+public enum TaskPriority {
+    LOW,       // Nice to have
+    MEDIUM,    // Normal priority
+    HIGH,      // Important
+    CRITICAL   // Urgent, highest priority
+}
+```
+
+**Default:** New tasks are `MEDIUM`
+
+---
+
+## Soft Delete Implementation
+
+### User Entity - Soft Delete ✅ FULLY IMPLEMENTED
+
+**Fields:**
+```java
+@Column(nullable = false)
+@Builder.Default
+private Boolean deleted = false;        // Soft delete flag
+
+@Column(name = "deleted_at")
+private LocalDateTime deletedAt;        // Deletion timestamp
+
+@Column(name = "deleted_by")
+private Long deletedBy;                 // Admin who deleted (audit trail)
+```
+
+**Hibernate Annotations:**
+```java
+@SQLDelete(sql = "UPDATE users SET deleted = true, deleted_at = NOW() WHERE id = ?")
+@Where(clause = "deleted = false")
+public class User { ... }
+```
+
+**How it works:**
+1. **@SQLDelete** - Override DELETE command to UPDATE instead
+   - Physical DELETE becomes logical UPDATE
+   - Data preserved in database
+
+2. **@Where** - Auto-filter deleted users in all queries
+   - `userRepository.findById(1)` only returns active users
+   - `userRepository.findAll()` excludes deleted users
+   - Bypass with custom query: `@Query("SELECT u FROM User u WHERE u.id = :id")`
+
+**Business Rules:**
+- DELETE user → soft delete only (deleted = true)
+- Tasks → unassigned automatically (assignee = NULL, status = UNASSIGNED)
+- Comments → preserved (audit trail, author_id retained)
+- Projects → preserved (business continuity, owner_id retained)
+
+**Restore Capability:**
+```java
+// UserService.restoreUser()
+user.setDeleted(false);
+user.setDeletedAt(null);
+user.setDeletedBy(null);
+userRepository.save(user);
+```
+
+---
+
+### Task Entity - Soft Delete (Partial)
+
+**Fields:**
+```java
+private boolean deleted = false;        // Flag: is task deleted?
+private LocalDateTime deletedAt = null; // When was it deleted?
+```
+
+**⚠️ Known Issue:**
+Soft delete fields are **defined but not fully used**:
+- ✅ Fields exist in entity
+- ❌ No @SQLDelete annotation
+- ❌ Repositories don't filter `deleted = false` automatically
+- ❌ APIs use hard delete, not soft delete
+
+**Recommended Fix:**
+Add Hibernate annotations like User entity:
+```java
+@SQLDelete(sql = "UPDATE tasks SET deleted = true, deleted_at = NOW() WHERE id = ?")
+@Where(clause = "deleted = false")
+public class Task { ... }
+```
+
+---
+
+## Known Issues & Limitations
+
+### ✅ RESOLVED Issues
+
+**1. Cannot remove assignee from task** ✅ RESOLVED
+```java
+// NOW POSSIBLE:
+task.setAssignee(null); // ✅ Works! Assignee is optional
+```
+**Resolution:** 
+- ✅ Changed Task.assignee to `optional = true, nullable = true`
+- ✅ Added @OnDelete(SET_NULL) annotation
+- ✅ Added UNASSIGNED enum to TaskStatus
+- ✅ Tasks can be unassigned
+- ✅ Users can be deleted (tasks auto-unassigned)
+
+**Implementation:**
+```java
+@ManyToOne(fetch = FetchType.LAZY, optional = true)  // ✅ Changed
+@JoinColumn(name = "assignee_id", nullable = true)   // ✅ Changed
+@OnDelete(action = OnDeleteAction.SET_NULL)          // ✅ Added
+private User assignee;
+```
+
+---
+
+**2. Foreign key blocks user deletion** ✅ RESOLVED
+```java
+// NOW WORKS:
+userService.deleteUser(1L); // ✅ Soft delete + unassign tasks
+```
+
+**Resolution:**
+- ✅ Implemented User soft delete (@SQLDelete, @Where)
+- ✅ Added ON DELETE SET NULL to Task.assignee
+- ✅ Bulk unassign tasks when user deleted (1 query, not N)
+- ✅ Tasks status → UNASSIGNED automatically
+- ✅ Comments preserved (audit trail)
+- ✅ Projects preserved (business continuity)
+
+**Business Flow:**
+```java
+// UserService.deleteUser()
+1. Find user (including deleted)
+2. Check if already deleted
+3. Count resources (tasks, comments, projects)
+4. Bulk unassign tasks: assignee=NULL, status=UNASSIGNED
+5. Preserve comments (keep author_id)
+6. Preserve projects (keep owner_id)
+7. Set deleted=true, deletedAt=NOW()
+```
+
+---
+
+### ❌ Remaining Issues
+
+**3. Task soft delete not enforced**
+```java
+// This returns deleted tasks too:
+taskRepository.findAll(); // ❌ No filter
+```
+
+**Status:** NOT RESOLVED
+- Task has soft delete fields but no @SQLDelete/@Where
+- APIs use hard delete (physical DELETE)
+- Queries don't filter deleted=false
+
+**Solution:** Add Hibernate annotations like User entity:
+```java
+@SQLDelete(sql = "UPDATE tasks SET deleted = true, deleted_at = NOW() WHERE id = ?")
+@Where(clause = "deleted = false")
+public class Task { ... }
+```
+
+---
+
+## Business Methods
+
+### Task Completion
+```java
+task.complete();
+// Sets status = COMPLETED, completedAt = now()
+```
+
+### Check Overdue
+```java
+if (task.isOverdue()) {
+    // Send notification
+}
+```
+
+### Assign Task
+```java
+task.assignTo(user);
+// Validates user not null
+```
+
+---
+
+## Related Documentation
+
+- [TaskService](../service/README.md) - Business logic for tasks
+- [TaskController](../api/README.md) - REST API endpoints
+- [TaskRepository](../repository/README.md) - Data access
+- [Main README](../../../README.md) - Project overview
+
+---
+
+**Last Updated:** December 14, 2025  
+**Version:** 0.5.0 - MVP Phase  
+**Status:** Core entity complete, soft delete partially implemented

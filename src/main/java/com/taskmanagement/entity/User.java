@@ -5,8 +5,12 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 /**
  * User entity đại diện cho một người dùng trong ứng dụng.
  * 
@@ -36,6 +40,8 @@ import java.time.LocalDateTime;
         @Index(name = "idx_username", columnList = "username", unique =true)
     }
 )
+@SQLDelete(sql = "UPDATE users SET deleted = true, deleted_at = NOW() WHERE id = ?")
+@Where(clause = "deleted = false")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -99,7 +105,7 @@ public class User {
  * Lý do length=255: BCrypt ~60 ký tự nhưng để phòng trường hợp dùng thuật toán khác
  * 
  * Ghi chú bảo mật:
- * - Lưu bằng BCrypt (ví dụ: $2a$10$N9qo8uLOickgx2ZMRZoMye...)
+ * - Lưu bằng BCrypt (ví dụ: List<User>a...)
  * - Tuyệt đối không lưu hoặc log mật khẩu gốc
  * - Việc validate mật khẩu nằm trong AuthService
  */
@@ -193,6 +199,57 @@ public class User {
     public void updateLastLogin() {
         this.LastLoginAt = LocalDateTime.now();
     }
+
+// ========== SOFT DELETE FIELDS ==========
+    
+    /**
+     * Soft delete flag
+     * - true: User đã bị xóa (logical delete)
+     * - false: User vẫn active
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean deleted = false;
+
+    /**
+     * Thời điểm xóa user
+     */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    /**
+     * Admin user đã xóa (audit trail)
+     */
+    @Column(name = "deleted_by")
+    private Long deletedBy;
+
+    // ========== RELATIONSHIPS ==========
+
+    @OneToMany(mappedBy = "assignee")
+    @Builder.Default
+    private List<Task> assignedTasks = new ArrayList<>();
+
+    @OneToMany(mappedBy = "owner")
+    @Builder.Default
+    private List<Project> ownedProjects = new ArrayList<>();
+
+    @OneToMany(mappedBy = "author")
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
+
+    // ========== LIFECYCLE CALLBACKS ==========
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
 }
 
       

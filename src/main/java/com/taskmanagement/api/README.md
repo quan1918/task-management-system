@@ -4,9 +4,25 @@
 
 The **API layer** is the presentation/interface adapter layer in our Clean Architecture design. It handles all HTTP requests and responses, serving as the bridge between external clients and the application's business logic.
 
-**Location:** \src/main/java/com/taskmanagement/api/\
+**Location:** `src/main/java/com/taskmanagement/api/`
 
 **Responsibility:** Convert HTTP requests to service calls and return HTTP responses
+
+---
+
+##  Current Implementation Status
+
+### ✅ Implemented Controllers
+- **TaskController.java** - Task CRUD operations (POST, GET, PUT, DELETE)
+- **UserController.java** - User management (GET all, GET by ID, DELETE with soft delete, POST restore)
+
+### 🔲 Not Yet Implemented
+- AuthController.java - Authentication & authorization  
+- ProjectController.java - Project management
+- CommentController.java - Task comments
+- AttachmentController.java - File attachments
+- ReportController.java - Reports & analytics
+- UserController - CREATE and UPDATE operations (only GET/DELETE/RESTORE implemented)
 
 ---
 
@@ -19,41 +35,147 @@ The **API layer** is the presentation/interface adapter layer in our Clean Archi
 - Validate request format using Bean Validation (@Valid)
 
 ### 2. Authorization & Security
-- Check user authentication via JWT tokens
-- Enforce role-based access control (@PreAuthorize)
-- Validate permissions before allowing operations
+- ✅ Basic Authentication with Spring Security (username/password)
+- 🔲 JWT tokens (planned for Phase 2)
+- 🔲 Role-based access control @PreAuthorize (planned)
+- ✅ Secured all endpoints with HTTP Basic Auth
 
 ### 3. Service Orchestration
 - Call appropriate service methods based on the request
-- Orchestrate multi-service workflows for complex operations
-- Handle transaction boundaries
+- Delegate business logic to service layer
+- Return DTOs instead of entities
 
 ### 4. Response Formatting
 - Convert domain entities to DTOs
 - Build proper HTTP response structures
 - Return appropriate HTTP status codes (200, 201, 400, 401, 403, 404, 500, etc.)
-- Include proper response headers
+- Include Location header for created resources (201)
 
 ### 5. Error Handling
-- Catch exceptions from services
+- Exceptions caught by GlobalExceptionHandler
 - Translate business exceptions to HTTP status codes
-- Return standardized error responses
+- Return standardized ErrorResponse
 
 ---
 
-##  Folder Structure
+##  Implemented API Endpoints
 
-\\\
-api/
- TaskController.java           # Task CRUD operations
- UserController.java           # User management
- AuthController.java           # Authentication & authorization
- ProjectController.java        # Project management
- CommentController.java        # Task comments
- AttachmentController.java     # File attachments
- ReportController.java         # Reports & analytics
- README.md                     # This file
-\\\
+### TaskController
+
+Base URL: `/api/tasks`
+
+| Method | Endpoint | Description | Request Body | Response | Auth |
+|--------|----------|-------------|--------------|----------|------|
+| POST | `/api/tasks` | Create new task | CreateTaskRequest | 201 + TaskResponse | Basic Auth |
+| GET | `/api/tasks/{id}` | Get task by ID | - | 200 + TaskResponse | Basic Auth |
+| PUT | `/api/tasks/{id}` | Update task | UpdateTaskRequest | 200 + TaskResponse | Basic Auth |
+| DELETE | `/api/tasks/{id}` | Delete task | - | 204 No Content | Basic Auth |
+
+---
+
+### UserController
+
+Base URL: `/api/users`
+
+| Method | Endpoint | Description | Request Body | Response | Auth |
+|--------|----------|-------------|--------------|----------|------|
+| GET | `/api/users` | Get all active users | - | 200 + List<UserResponse> | Basic Auth |
+| GET | `/api/users/{id}` | Get user by ID | - | 200 + UserResponse | Basic Auth |
+| DELETE | `/api/users/{id}` | Soft delete user | - | 204 No Content | Basic Auth |
+| POST | `/api/users/{id}/restore` | Restore deleted user | - | 200 + UserResponse | Basic Auth |
+
+#### Business Rules
+- **DELETE user** → Soft delete (deleted = true, not physical delete)
+- **Tasks** → Unassigned automatically (assignee = NULL, status = UNASSIGNED)
+- **Comments** → Preserved (audit trail, author_id retained)
+- **Projects** → Preserved (business continuity, owner_id retained)
+- **Cannot delete** user already deleted (409 Conflict)
+- **Cannot restore** user not deleted (409 Conflict)
+
+#### Example Responses
+
+**GET /api/users - Success (200)**
+```json
+[
+  {
+    "id": 1,
+    "username": "john_doe",
+    "fullName": "John Doe",
+    "email": "john@example.com",
+    "active": true,
+    "lastLoginAt": "2025-12-16T10:30:00",
+    "createdAt": "2025-12-01T08:00:00",
+    "updatedAt": "2025-12-16T10:30:00"
+  }
+]
+```
+
+**GET /api/users/1 - Success (200)**
+```json
+{
+  "id": 1,
+  "username": "john_doe",
+  "fullName": "John Doe",
+  "email": "john@example.com",
+  "active": true,
+  "lastLoginAt": "2025-12-16T10:30:00",
+  "createdAt": "2025-12-01T08:00:00",
+  "updatedAt": "2025-12-16T10:30:00"
+}
+```
+
+**GET /api/users/999 - Not Found (404)**
+```json
+{
+  "timestamp": "2025-12-16T10:30:00",
+  "status": 404,
+  "error": "Not Found",
+  "message": "User not found with id: 999",
+  "path": "/api/users/999"
+}
+```
+
+**DELETE /api/users/1 - Success (204)**
+- No response body
+- Tasks auto-unassigned (bulk update)
+- Comments preserved
+- Projects preserved
+
+**DELETE /api/users/1 - Already Deleted (409)**
+```json
+{
+  "timestamp": "2025-12-16T10:30:00",
+  "status": 409,
+  "error": "Conflict",
+  "message": "User is already deleted",
+  "path": "/api/users/1"
+}
+```
+
+**POST /api/users/1/restore - Success (200)**
+```json
+{
+  "id": 1,
+  "username": "john_doe",
+  "fullName": "John Doe",
+  "email": "john@example.com",
+  "active": true,
+  "lastLoginAt": "2025-12-16T10:30:00",
+  "createdAt": "2025-12-01T08:00:00",
+  "updatedAt": "2025-12-16T11:00:00"
+}
+```
+
+**POST /api/users/1/restore - User Not Deleted (409)**
+```json
+{
+  "timestamp": "2025-12-16T10:30:00",
+  "status": 409,
+  "error": "Conflict",
+  "message": "User is not deleted",
+  "path": "/api/users/1/restore"
+}
+```
 
 ---
 
@@ -258,81 +380,179 @@ public ResponseEntity<ErrorResponse> handleTaskNotFound(TaskNotFoundException ex
 
 ---
 
-##  Example: TaskController
+##  TaskController Implementation
 
-\\\java
+### Complete Controller Code (Current)
+
+```java
 @RestController
 @RequestMapping("/api/tasks")
-@Tag(name = "Tasks", description = "Task management endpoints")
+@RequiredArgsConstructor
+@Slf4j
 public class TaskController {
     
     private final TaskService taskService;
     
-    public TaskController(TaskService taskService) {
-        this.taskService = taskService;
-    }
-    
-    // Create new task
+    /**
+     * POST /api/tasks - Create new task
+     * Returns: 201 Created with Location header
+     */
     @PostMapping
-    @PreAuthorize("hasRole('MANAGER')")
-    @Operation(summary = "Create a new task")
     public ResponseEntity<TaskResponse> createTask(
             @Valid @RequestBody CreateTaskRequest request) {
-        Task task = taskService.createTask(request);
-        return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .body(TaskResponse.from(task));
+        
+        log.info("POST /api/tasks - Creating task: title={}", request.getTitle());
+        
+        TaskResponse response = taskService.createTask(request);
+        
+        // Build Location header: /api/tasks/{id}
+        URI location = ServletUriComponentsBuilder
+            .fromCurrentRequest()
+            .path("/{id}")
+            .buildAndExpand(response.getId())
+            .toUri();
+        
+        return ResponseEntity.created(location).body(response);
     }
     
-    // List all tasks (paginated)
-    @GetMapping
-    @Operation(summary = "List all tasks")
-    public ResponseEntity<Page<TaskResponse>> listTasks(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Page<Task> tasks = taskService.listTasks(page, size);
-        return ResponseEntity.ok(tasks.map(TaskResponse::from));
-    }
-    
-    // Get single task
+    /**
+     * GET /api/tasks/{id} - Get task by ID
+     * Returns: 200 OK with TaskResponse
+     * Throws: TaskNotFoundException (404) if not found
+     */
     @GetMapping("/{id}")
-    @Operation(summary = "Get task by ID")
-    public ResponseEntity<TaskResponse> getTask(@PathVariable Long id) {
-        Task task = taskService.getTaskById(id);
-        return ResponseEntity.ok(TaskResponse.from(task));
+    public ResponseEntity<TaskResponse> getTaskById(@PathVariable Long id) {
+        log.info("GET /api/tasks/{} - Fetching task by ID", id);
+        
+        TaskResponse response = taskService.getTaskById(id);
+        
+        return ResponseEntity.ok(response);
     }
     
-    // Update task
+    /**
+     * PUT /api/tasks/{id} - Update task (partial update)
+     * Returns: 200 OK with updated TaskResponse
+     * Throws: TaskNotFoundException (404) if not found
+     */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('MANAGER') or @taskSecurityService.isAssignee(#id)")
-    @Operation(summary = "Update a task")
     public ResponseEntity<TaskResponse> updateTask(
             @PathVariable Long id,
             @Valid @RequestBody UpdateTaskRequest request) {
-        Task task = taskService.updateTask(id, request);
-        return ResponseEntity.ok(TaskResponse.from(task));
+        
+        log.info("PUT /api/tasks/{} - Updating task", id);
+        
+        TaskResponse response = taskService.updateTask(id, request);
+        
+        return ResponseEntity.ok(response);
     }
     
-    // Update task status only
-    @PatchMapping("/{id}/status")
-    @Operation(summary = "Update task status")
-    public ResponseEntity<TaskResponse> updateTaskStatus(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateStatusRequest request) {
-        Task task = taskService.updateTaskStatus(id, request.getStatus());
-        return ResponseEntity.ok(TaskResponse.from(task));
-    }
-    
-    // Delete task
+    /**
+     * DELETE /api/tasks/{id} - Delete task
+     * Returns: 204 No Content
+     * Throws: TaskNotFoundException (404) if not found
+     * Note: Cascade deletes comments and attachments
+     */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
-    @Operation(summary = "Delete a task")
     public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
+        log.info("DELETE /api/tasks/{} - Deleting task", id);
+        
         taskService.deleteTask(id);
+        
         return ResponseEntity.noContent().build();
     }
 }
-\\\
+```
+
+### API Examples with Full Request/Response
+
+#### 1. Create Task
+
+**Request:**
+```http
+POST http://localhost:8080/api/tasks
+Content-Type: application/json
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
+
+{
+  "title": "Fix login bug",
+  "description": "Users cannot login with special characters",
+  "priority": "HIGH",
+  "dueDate": "2025-12-20T17:00:00",
+  "estimatedHours": 8,
+  "assigneeId": 1,
+  "projectId": 1
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": 123,
+  "title": "Fix login bug",
+  "status": "PENDING",
+  "priority": "HIGH",
+  "assignee": {
+    "id": 1,
+    "username": "johndoe",
+    "fullName": "John Doe",
+    "email": "john@example.com"
+  },
+  "project": {
+    "id": 1,
+    "name": "Website Redesign"
+  },
+  "createdAt": "2025-12-14T10:30:00",
+  "updatedAt": "2025-12-14T10:30:00"
+}
+```
+
+**Headers:**
+```
+Location: http://localhost:8080/api/tasks/123
+```
+
+#### 2. Get Task
+
+**Request:**
+```http
+GET http://localhost:8080/api/tasks/123
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": 123,
+  "title": "Fix login bug",
+  "status": "IN_PROGRESS",
+  "assignee": {
+    "id": 1,
+    "username": "johndoe"
+  }
+}
+```
+
+#### 3. Update Task
+
+**Request:**
+```http
+PUT http://localhost:8080/api/tasks/123
+Content-Type: application/json
+
+{
+  "status": "IN_PROGRESS",
+  "assigneeId": 2
+}
+```
+
+#### 4. Delete Task  
+
+**Request:**
+```http
+DELETE http://localhost:8080/api/tasks/123
+```
+
+**Response:** 204 No Content
 
 ---
 
@@ -645,6 +865,16 @@ When creating a new controller, ensure:
 
 ---
 
-**Last Updated:** December 1, 2025  
-**Version:** 1.0.0  
-**Status:** Complete
+## Related Documentation
+
+- [Main README](../../../README.md) - Project overview  
+- [Service Layer](../service/README.md) - Business logic
+- [Entity Layer](../entity/README.md) - Domain model
+- [DTO Layer](../dto/README.md) - Request/Response DTOs
+- [Exception Handling](../exception/README.md) - Error handling
+
+---
+
+**Last Updated:** December 14, 2025  
+**Version:** 0.5.0 - MVP Phase  
+**Status:** TaskController fully implemented, other controllers pending

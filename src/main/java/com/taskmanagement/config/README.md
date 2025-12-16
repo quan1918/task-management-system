@@ -1,827 +1,517 @@
-﻿# Configuration Layer
+# Configuration Layer
 
-##  Overview
+## 📋 Overview
 
-The **configuration layer** contains all Spring Boot configuration classes that set up the application infrastructure, security, database connectivity, API documentation, and cross-cutting concerns.
+**Purpose:** Application infrastructure configuration including security, database, and framework setup.
 
-**Location:** \src/main/java/com/taskmanagement/config/\
+**Location:** `src/main/java/com/taskmanagement/config/`
 
-**Responsibility:** Initialize and configure application components, beans, and framework integrations
-
----
-
-##  Core Responsibilities
-
-### 1. Framework Integration
-- Configure Spring Data JPA and Hibernate
-- Set up Spring Security with JWT authentication
-- Register custom beans in the Spring container
-- Configure Bean Validation
-
-### 2. Security Setup
-- JWT token provider and validation
-- Password encryption (BCrypt)
-- CORS (Cross-Origin Resource Sharing)
-- Security filter chains
-
-### 3. Database Configuration
-- Repository component scanning
-- Entity auditing setup
-- Connection pooling
-- Transaction management
-
-### 4. API Documentation
-- Swagger/OpenAPI configuration
-- Interactive API documentation
-- Security scheme definitions for JWT
-
-### 5. Error Handling
-- Global exception handler
-- Standardized error response format
-- HTTP status code mapping
-
-### 6. Application Properties
-- Environment-specific settings
-- Profiles (dev, prod, test)
-- Spring Boot configuration
+**Current Status:**  
+✅ **MVP Phase** - Basic Security with HTTP Basic Auth  
+🔲 **Future** - JWT authentication, CORS, Swagger/OpenAPI
 
 ---
 
-##  Folder Structure
+## 📁 Current Structure
 
-\\\
+```
 config/
- JpaConfig.java              # JPA/Hibernate & entity auditing
- OpenApiConfig.java          # Swagger/OpenAPI setup
- SecurityConfig.java         # Spring Security & JWT
- WebConfig.java              # CORS, content negotiation
- Jackson.Config.java         # JSON serialization settings
- README.md                   # This file
-\\\
+├── SecurityConfig.java      # ✅ Spring Security with Basic Auth
+└── README.md               # This file
+```
 
 ---
 
-##  Key Concepts
+## 🎯 Core Responsibilities
 
-### Configuration Classes
+### ✅ Currently Implemented
 
-Configuration classes are Spring beans marked with \@Configuration\ that define how the application should be set up.
+1. **Basic Authentication**
+   - HTTP Basic Auth (username/password)
+   - BCrypt password encoding
+   - In-memory user store (3 hardcoded users)
 
-**Naming Convention:** \{Domain}Config\
-- JpaConfig
-- SecurityConfig
-- OpenApiConfig
-- WebConfig
+2. **Security Rules**
+   - All endpoints require authentication (except /actuator/health)
+   - CSRF disabled (for REST API)
 
-**Anatomy of a Configuration Class:**
+### 🔲 Not Yet Implemented
 
-\\\java
-@Configuration
-public class JpaConfig {
-    
-    /**
-     * Enable JPA repository component scanning
-     * Scans com.taskmanagement.repository package for repository interfaces
-     */
-    @Bean
-    public SomeFeature someFeature() {
-        return new SomeFeature();
-    }
-}
-\\\
+- JWT token-based authentication
+- Role-based access control (authorization)
+- Database-backed user authentication
+- CORS configuration
+- API documentation (Swagger/OpenAPI)
+- Custom authentication filters
+- Session management
 
 ---
 
-##  JpaConfig - Database Configuration
+## SecurityConfig
 
-**Purpose:** Configure JPA/Hibernate, repository scanning, and entity auditing
+**Location:** [SecurityConfig.java](SecurityConfig.java)
 
-**Responsibilities:**
-- Enable \@Repository\ component scanning
-- Configure entity auditing (\@CreatedDate\, \@LastModifiedDate\)
-- Set up JPA repository base packages
-- Register custom repository implementations
+**Purpose:** Configure Spring Security for API authentication
 
-**Example:**
+### Configuration
 
-\\\java
-@Configuration
-@EnableJpaRepositories(basePackages = "com.taskmanagement.repository")
-@EnableJpaAuditing(auditorAwareRef = "auditorAware")
-public class JpaConfig {
-    
-    /**
-     * Provides audit information (who created/modified records)
-     * Used by JPA auditing to populate @CreatedBy, @LastModifiedBy
-     */
-    @Bean
-    public AuditorAware<String> auditorAware() {
-        return () -> SecurityContextHolder.getContext()
-            .getAuthentication()
-            .map(auth -> auth.getName())
-            .stream()
-            .findFirst();
-    }
-}
-\\\
-
-**Key Features:**
-- \@EnableJpaRepositories\ - Scans for repository interfaces
-- \@EnableJpaAuditing\ - Enables audit field population
-- \AuditorAware\ - Tracks who created/modified records
-- Entity lifecycle management
-
----
-
-##  SecurityConfig - Spring Security Setup
-
-**Purpose:** Configure JWT authentication, password encoding, and authorization
-
-**Responsibilities:**
-- Configure Spring Security filter chain
-- Set session management (stateless)
-- Define password encoder (BCrypt)
-- Register authentication manager
-- Configure authorization rules
-- Set up CORS
-
-**Example:**
-
-\\\java
+```java
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
     
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-    }
-    
-    /**
-     * Configure HTTP security: stateless sessions, JWT filter, authorization
-     */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
-            .csrf().disable()  // Stateless API (CSRF not needed)
-            .sessionManagement()
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                .and()
-            .authorizeRequests()
-                .antMatchers("/api/auth/**").permitAll()  // Public endpoints
-                .antMatchers("/api/swagger-ui/**", "/api/v3/api-docs/**").permitAll()  // Docs
-                .anyRequest().authenticated()  // All others require auth
-                .and()
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .exceptionHandling()
-                .authenticationEntryPoint(new JwtAuthenticationEntryPoint())
-                .accessDeniedHandler(new JwtAccessDeniedHandler());
+            .csrf(csrf -> csrf.disable())  // Disable CSRF for REST API
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/actuator/health").permitAll()  // Health check public
+                .anyRequest().authenticated()  // All other endpoints require auth
+            )
+            .httpBasic(basic -> {});  // Enable HTTP Basic Auth
         
         return http.build();
     }
-    
-    /**
-     * Password encoder: BCrypt with strength 10
-     */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(10);
-    }
-    
-    /**
-     * Authentication manager for user login
-     */
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
-    
-    /**
-     * CORS configuration
-     */
-    @Bean
-    public WebMvcConfigurer corsConfigurer() {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/api/**")
-                    .allowedOrigins("http://localhost:3000", "http://localhost:4200")
-                    .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH")
-                    .allowedHeaders("*")
-                    .allowCredentials(true)
-                    .maxAge(3600);
-            }
-        };
-    }
 }
-\\\
+```
 
-**Key Components:**
-- \@EnableWebSecurity\ - Activates Spring Security
-- \@EnableMethodSecurity\ - Enables \@PreAuthorize\ on methods
-- \SecurityFilterChain\ - HTTP security configuration
-- \PasswordEncoder\ - BCrypt password hashing
-- \AuthenticationManager\ - Handles login authentication
-- \CORS\ - Cross-origin requests configuration
+### Security Rules
+
+| Endpoint | Authentication | Notes |
+|----------|---------------|-------|
+| `GET /actuator/health` | ❌ Not required | Public health check |
+| `POST /api/tasks` | ✅ Required | Create task |
+| `GET /api/tasks/{id}` | ✅ Required | Get task |
+| `PUT /api/tasks/{id}` | ✅ Required | Update task |
+| `DELETE /api/tasks/{id}` | ✅ Required | Delete task |
+
+### Authentication Type
+
+**HTTP Basic Authentication:**
+```
+Authorization: Basic base64(username:password)
+```
+
+**Example:**
+```bash
+# Username: admin, Password: admin
+curl -u admin:admin http://localhost:8080/api/tasks/1
+
+# Or with header:
+curl -H "Authorization: Basic YWRtaW46YWRtaW4=" http://localhost:8080/api/tasks/1
+```
+
+### User Store
+
+**In-Memory Users (Hardcoded):**
+
+```java
+@Bean
+public UserDetailsService userDetailsService() {
+    // User 1: Admin
+    UserDetails admin = User.builder()
+        .username("admin")
+        .password(passwordEncoder().encode("admin"))
+        .roles("ADMIN", "USER")
+        .build();
+    
+    // User 2: Regular user
+    UserDetails user = User.builder()
+        .username("user")
+        .password(passwordEncoder().encode("user"))
+        .roles("USER")
+        .build();
+    
+    // User 3: Test user
+    UserDetails john = User.builder()
+        .username("john")
+        .password(passwordEncoder().encode("john"))
+        .roles("USER")
+        .build();
+    
+    return new InMemoryUserDetailsManager(admin, user, john);
+}
+```
+
+**Available Test Users:**
+
+| Username | Password | Roles | Notes |
+|----------|----------|-------|-------|
+| `admin` | `admin` | ADMIN, USER | Full access |
+| `user` | `user` | USER | Standard access |
+| `john` | `john` | USER | Test user |
+
+**⚠️ Important:** These are hardcoded for testing only. Change before production!
+
+### Password Encoding
+
+**BCrypt:**
+```java
+@Bean
+public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+}
+```
+
+**How it works:**
+- Passwords stored hashed (not plaintext)
+- BCrypt uses salt for each password
+- Computationally expensive (prevents brute force)
+- Industry standard for password hashing
 
 ---
 
-##  OpenApiConfig - API Documentation Setup
+## 🔒 Security Features
 
-**Purpose:** Configure Swagger/OpenAPI 3.0 interactive documentation
+### 1. CSRF Disabled
 
-**Responsibilities:**
-- Define OpenAPI 3.0 schema
-- Set up JWT Bearer authentication
-- Configure API metadata (title, version, description)
-- Define security schemes
+**Why disabled:**
+- REST API with stateless authentication
+- No session cookies used
+- JWT (future) will be stateless
+
+**Code:**
+```java
+.csrf(csrf -> csrf.disable())
+```
+
+**⚠️ Warning:** Don't disable CSRF for browser-based apps with cookies!
+
+### 2. HTTP Basic Auth
+
+**How it works:**
+1. Client sends request with `Authorization` header
+2. Spring Security decodes base64 credentials
+3. Checks against UserDetailsService
+4. Validates password with BCrypt
+5. Returns 401 if invalid, 200 if valid
+
+**Request flow:**
+```
+Client → Authorization: Basic YWRtaW46YWRtaW4=
+         ↓
+Spring Security Filter
+         ↓
+BCryptPasswordEncoder.matches()
+         ↓
+Authentication successful → Controller
+         ↓
+Response
+```
+
+### 3. Password Hashing
 
 **Example:**
+```java
+String plainPassword = "admin";
+String hashedPassword = passwordEncoder.encode(plainPassword);
+// $2a$10$N8LGr...  (60 chars)
 
-\\\java
-@Configuration
-public class OpenApiConfig {
+// Validation:
+boolean matches = passwordEncoder.matches("admin", hashedPassword);
+// true
+```
+
+---
+
+## 🧪 Testing Authentication
+
+### Using cURL
+
+```bash
+# With -u flag (recommended)
+curl -u admin:admin http://localhost:8080/api/tasks/1
+
+# With Authorization header
+curl -H "Authorization: Basic YWRtaW46YWRtaW4=" \
+     http://localhost:8080/api/tasks/1
+
+# Wrong credentials (401 Unauthorized)
+curl -u admin:wrong http://localhost:8080/api/tasks/1
+```
+
+### Using Postman
+
+1. **Authorization tab**
+   - Type: Basic Auth
+   - Username: `admin`
+   - Password: `admin`
+
+2. **Or Headers tab**
+   - Key: `Authorization`
+   - Value: `Basic YWRtaW46YWRtaW4=`
+
+### Using HTTPie
+
+```bash
+# Simple syntax
+http -a admin:admin GET localhost:8080/api/tasks/1
+
+# Or explicit header
+http GET localhost:8080/api/tasks/1 \
+     "Authorization: Basic YWRtaW46YWRtaW4="
+```
+
+---
+
+## ⚠️ Known Limitations
+
+### 1. No JWT Authentication
+
+**Current:** HTTP Basic Auth (username/password in every request)
+
+**Issues:**
+- Credentials sent with every request
+- No token expiration
+- No refresh tokens
+- Less secure for production
+
+**Future:** JWT tokens
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### 2. No Role-Based Access Control
+
+**Current:** All authenticated users have same permissions
+
+**Missing:**
+```java
+// Can't do this yet:
+@PreAuthorize("hasRole('ADMIN')")
+public void deleteTask(Long id) { ... }
+
+// Or:
+.requestMatchers("/api/admin/**").hasRole("ADMIN")
+.requestMatchers("/api/tasks/**").hasAnyRole("USER", "ADMIN")
+```
+
+**Impact:** Any authenticated user can perform any operation
+
+### 3. Hardcoded Users
+
+**Current:** 3 users defined in code
+
+**Issues:**
+- Can't add users at runtime
+- No user registration
+- No user management
+- Not production-ready
+
+**Future:** Database-backed authentication
+```java
+@Service
+public class CustomUserDetailsService implements UserDetailsService {
+    @Autowired
+    private UserRepository userRepository;
     
-    /**
-     * Define OpenAPI 3.0 specification
-     */
+    @Override
+    public UserDetails loadUserByUsername(String username) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new UsernameNotFoundException(username));
+        return new org.springframework.security.core.userdetails.User(
+            user.getUsername(),
+            user.getPassword(),
+            user.getAuthorities()
+        );
+    }
+}
+```
+
+### 4. No CORS Configuration
+
+**Current:** CORS not configured
+
+**Issue:** Frontend apps from different origin will be blocked
+
+**Future:**
+```java
+@Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+    configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+    configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE"));
+    configuration.setAllowedHeaders(Arrays.asList("*"));
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+}
+```
+
+### 5. No API Documentation
+
+**Missing:** Swagger/OpenAPI configuration
+
+**Future:**
+```java
+@Configuration
+public class SwaggerConfig {
     @Bean
-    public OpenAPI taskManagementOpenAPI() {
+    public OpenAPI openAPI() {
         return new OpenAPI()
             .info(new Info()
-                .title("Task Management System API")
-                .description("REST API for task management and team collaboration")
-                .version("1.0.0")
-                .contact(new Contact()
-                    .name("Development Team")
-                    .email("dev@example.com")))
-            .addServersItem(new Server()
-                .url("http://localhost:8080")
-                .description("Development Server"))
-            .components(new Components()
-                .addSecuritySchemes("bearer-jwt", 
-                    new SecurityScheme()
-                        .type(SecurityScheme.Type.HTTP)
-                        .scheme("bearer")
-                        .bearerFormat("JWT")
-                        .description("JWT token")))
-            .addSecurityItem(new SecurityRequirement().addList("bearer-jwt"));
+                .title("Task Management API")
+                .version("1.0"));
     }
 }
-\\\
-
-**Key Features:**
-- \OpenAPI\ - Main API specification
-- \Info\ - API title, description, version
-- \SecurityScheme\ - JWT Bearer definition
-- \Server\ - Base URL configuration
-- Interactive docs at \http://localhost:8080/api/swagger-ui.html\
+```
 
 ---
 
-##  WebConfig - Web & CORS Configuration
+## 🔐 Security Best Practices
 
-**Purpose:** Configure web layer, CORS, content negotiation, and request/response handling
+### ✅ Do's
 
-**Responsibilities:**
-- CORS (Cross-Origin Resource Sharing)
-- Content type negotiation
-- View resolution
-- Interceptor registration
-- Message converter configuration
+```java
+// Use password encoder
+passwordEncoder().encode("password")
 
-**Example:**
+// Disable CSRF for stateless REST API
+.csrf(csrf -> csrf.disable())
 
-\\\java
+// Require authentication by default
+.anyRequest().authenticated()
+
+// Use HTTPS in production
+server.ssl.enabled=true
+```
+
+### ❌ Don'ts
+
+```java
+// Don't hardcode passwords in production
+.password("admin")  // ❌
+
+// Don't disable security entirely
+http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())  // ❌
+
+// Don't store plaintext passwords
+user.setPassword("plaintext")  // ❌
+
+// Don't use HTTP Basic Auth in production without HTTPS
+// Credentials sent in base64 (easily decoded)
+```
+
+---
+
+## 🔮 Planned Enhancements
+
+### Phase 1: JWT Authentication
+
+```java
 @Configuration
-public class WebConfig implements WebMvcConfigurer {
+public class JwtSecurityConfig {
     
-    /**
-     * Configure CORS for API endpoints
-     */
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
-            .allowedOrigins("http://localhost:3000", "http://localhost:4200")
-            .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-            .allowedHeaders("*")
-            .exposedHeaders("X-Total-Count", "X-Page-Number")
-            .allowCredentials(true)
-            .maxAge(3600);  // 1 hour
-    }
-    
-    /**
-     * Configure HTTP message converters
-     */
-    @Override
-    public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
-        converters.add(new MappingJackson2HttpMessageConverter());
-    }
-    
-    /**
-     * Register interceptors for request/response processing
-     */
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new LoggingInterceptor())
-            .addPathPatterns("/api/**");
-    }
-}
-\\\
-
-**Key Features:**
-- CORS configuration for frontend access
-- Allowed HTTP methods and headers
-- Credentials support
-- Cache duration settings
-
----
-
-##  JacksonConfig - JSON Serialization
-
-**Purpose:** Configure JSON serialization/deserialization behavior
-
-**Responsibilities:**
-- Date/time formatting
-- Null value handling
-- Case conversion
-- Custom serializers
-
-**Example:**
-
-\\\java
-@Configuration
-public class JacksonConfig {
-    
-    /**
-     * Customize ObjectMapper for JSON serialization
-     */
     @Bean
-    public ObjectMapper objectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        
-        // Java 8+ date/time support
-        mapper.registerModule(new JavaTimeModule());
-        
-        // Ignore unknown properties during deserialization
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        
-        // Include non-null values only
-        mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        
-        // Format dates as ISO 8601
-        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        
-        return mapper;
-    }
-}
-\\\
-
-**Key Features:**
-- ISO 8601 date formatting
-- Null value exclusion
-- Unknown property handling
-- Custom serialization rules
-
----
-
-##  Exception Handling Configuration
-
-**Purpose:** Centralized exception handling with standardized error responses
-
-**Responsibilities:**
-- Catch exceptions globally
-- Map exceptions to HTTP status codes
-- Format error responses
-- Log errors for debugging
-
-**Example:**
-
-\\\java
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-    
-    /**
-     * Handle task not found (404)
-     */
-    @ExceptionHandler(TaskNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleTaskNotFound(
-            TaskNotFoundException ex,
-            HttpServletRequest request) {
-        
-        ErrorResponse error = ErrorResponse.builder()
-            .code("TASK_NOT_FOUND")
-            .message(ex.getMessage())
-            .timestamp(System.currentTimeMillis())
-            .path(request.getRequestURI())
-            .build();
-        
-        return ResponseEntity
-            .status(HttpStatus.NOT_FOUND)
-            .body(error);
-    }
-    
-    /**
-     * Handle validation errors (400)
-     */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationError(
-            MethodArgumentNotValidException ex,
-            HttpServletRequest request) {
-        
-        String message = ex.getBindingResult().getFieldErrors()
-            .stream()
-            .map(error -> error.getField() + ": " + error.getDefaultMessage())
-            .collect(Collectors.joining(", "));
-        
-        ErrorResponse error = ErrorResponse.builder()
-            .code("VALIDATION_ERROR")
-            .message(message)
-            .timestamp(System.currentTimeMillis())
-            .path(request.getRequestURI())
-            .build();
-        
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(error);
-    }
-    
-    /**
-     * Handle generic exceptions (500)
-     */
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(
-            Exception ex,
-            HttpServletRequest request) {
-        
-        ErrorResponse error = ErrorResponse.builder()
-            .code("INTERNAL_SERVER_ERROR")
-            .message("An unexpected error occurred")
-            .timestamp(System.currentTimeMillis())
-            .path(request.getRequestURI())
-            .build();
-        
-        return ResponseEntity
-            .status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(error);
-    }
-}
-\\\
-
-**Key Features:**
-- \@RestControllerAdvice\ - Global exception handler
-- \@ExceptionHandler\ - Maps exceptions to responses
-- Standardized error response format
-- HTTP status code mapping
-
----
-
-##  Application Configuration Files
-
-### application.yml
-
-The main configuration file with environment-specific profiles.
-
-\\\yaml
-spring:
-  application:
-    name: task-management-system
-    version: 1.0.0
-  
-  jpa:
-    hibernate:
-      ddl-auto: validate  # Don't auto-create schema
-    show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQL15Dialect
-        format_sql: true
-  
-  datasource:
-    url: jdbc:postgresql://localhost:5432/task_management
-    username: postgres
-    password: postgres
-    hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      connection-timeout: 30000
-  
-  security:
-    jwt:
-      secret: your-super-secret-key-change-in-production
-      expiration: 86400000  # 24 hours
-      refresh-expiration: 604800000  # 7 days
-
----
-spring:
-  config:
-    activate:
-      on-profile: prod
-  datasource:
-    url: \
-    username: \
-    password: \
-  security:
-    jwt:
-      secret: \
-\\\
-
----
-
-##  Profiles
-
-### Development Profile (application-dev.yml)
-
-\\\yaml
-spring:
-  jpa:
-    show-sql: true
-    properties:
-      hibernate:
-        use_sql_comments: true
-  h2:
-    console:
-      enabled: true
-
-logging:
-  level:
-    com.taskmanagement: DEBUG
-    org.hibernate.SQL: DEBUG
-\\\
-
-### Production Profile (application-prod.yml)
-
-\\\yaml
-server:
-  compression:
-    enabled: true
-    min-response-size: 1024
-  
-  ssl:
-    enabled: true
-    key-store: \
-    key-store-password: \
-
-logging:
-  level:
-    root: INFO
-    com.taskmanagement: INFO
-\\\
-
-### Running with Profiles
-
-\\\ash
-# Development
-java -jar app.jar --spring.profiles.active=dev
-
-# Production
-java -jar app.jar --spring.profiles.active=prod
-\\\
-
----
-
-##  Bean Lifecycle
-
-Beans are created in this order:
-
-1. **Application starts**  Spring Boot initializes
-2. **Configuration classes loaded**  \@Bean\ methods executed
-3. **Beans registered**  Available for injection
-4. **Components autowired**  Dependencies injected
-5. **Application ready**  Accept requests
-
-**Example Flow:**
-
-\\\
-Spring Boot starts
-  
-Loads SecurityConfig
-  
-Creates PasswordEncoder bean
-  
-Creates AuthenticationManager bean
-  
-Creates JwtAuthenticationFilter bean
-  
-Loads JpaConfig
-  
-Creates AuditorAware bean
-  
-Application ready
-  
-Controllers receive requests
-\\\
-
----
-
-##  Testing Configurations
-
-### Test Configuration Class
-
-\\\java
-@TestConfiguration
-public class TestSecurityConfig {
-    
-    /**
-     * Mock security configuration for tests
-     */
-    @Bean
-    public SecurityFilterChain testSecurityFilterChain(HttpSecurity http) throws Exception {
-        http.authorizeRequests().anyRequest().permitAll();
+    public SecurityFilterChain filterChain(HttpSecurity http) {
+        http
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .sessionManagement()
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
         return http.build();
     }
+}
+
+// Login endpoint returns JWT
+POST /api/auth/login
+{
+  "username": "admin",
+  "password": "admin"
+}
+→ 
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresIn": 3600
+}
+
+// Subsequent requests use token
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### Phase 2: Role-Based Access Control
+
+```java
+@Configuration
+public class SecurityConfig {
     
     @Bean
-    public PasswordEncoder testPasswordEncoder() {
-        return NoOpPasswordEncoder.getInstance();  // For testing only!
+    public SecurityFilterChain filterChain(HttpSecurity http) {
+        http.authorizeHttpRequests(auth -> auth
+            .requestMatchers("/api/admin/**").hasRole("ADMIN")
+            .requestMatchers(POST, "/api/tasks").hasAnyRole("USER", "ADMIN")
+            .requestMatchers(GET, "/api/tasks/**").authenticated()
+            .requestMatchers(PUT, "/api/tasks/**").hasAnyRole("USER", "ADMIN")
+            .requestMatchers(DELETE, "/api/tasks/**").hasRole("ADMIN")
+        );
+        return http.build();
     }
 }
-\\\
 
-### Using Test Configuration
+// In controllers:
+@PreAuthorize("hasRole('ADMIN')")
+public void deleteTask(Long id) { ... }
 
-\\\java
-@SpringBootTest
-@Import(TestSecurityConfig.class)
-class TaskControllerTest {
+@PreAuthorize("hasRole('ADMIN') or @taskSecurity.isOwner(#id)")
+public void updateTask(Long id) { ... }
+```
+
+### Phase 3: Database Authentication
+
+```java
+@Service
+public class DatabaseUserDetailsService implements UserDetailsService {
     
     @Autowired
-    private MockMvc mockMvc;
-    
-    @Test
-    void test() {
-        // Test without security filters
-    }
-}
-\\\
-
----
-
-##  Best Practices
-
-### 1. Separate Concerns
-Each configuration class handles one domain:
-
-\\\java
-// JpaConfig - Database only
-@Configuration
-@EnableJpaRepositories
-public class JpaConfig { }
-
-// SecurityConfig - Security only
-@Configuration
-@EnableWebSecurity
-public class SecurityConfig { }
-
-// OpenApiConfig - API docs only
-@Configuration
-public class OpenApiConfig { }
-\\\
-
-### 2. Use Environment Variables
-
-\\\java
-@Value("\")
-private String jwtSecret;
-
-@Value("\")
-private String databaseUrl;
-\\\
-
-### 3. Document Configuration Purposes
-
-\\\java
-/**
- * JpaConfig configures:
- * - Repository component scanning
- * - Entity auditing (@CreatedDate, @LastModifiedDate)
- * - JPA lifecycle callbacks
- */
-@Configuration
-@EnableJpaRepositories(basePackages = "com.taskmanagement.repository")
-@EnableJpaAuditing(auditorAwareRef = "auditorAware")
-public class JpaConfig {
-    // Implementation
-}
-\\\
-
-### 4. Order Bean Creation (Phase 2+)
-
-\\\java
-@Configuration
-@Order(1)  // Load first
-public class SecurityConfig { }
-
-@Configuration
-@Order(2)  // Load second
-public class JpaConfig { }
-\\\
-
-### 5. Conditional Configuration (Phase 2+)
-
-\\\java
-@Configuration
-@ConditionalOnProperty(name = "feature.caching.enabled", havingValue = "true")
-public class CachingConfig {
-    @Bean
-    public CacheManager cacheManager() {
-        return new ConcurrentMapCacheManager("users", "tasks");
-    }
-}
-\\\
-
----
-
-##  Debugging Configurations
-
-### Log Bean Creation
-
-Add to \pplication.yml\:
-
-\\\yaml
-logging:
-  level:
-    org.springframework: DEBUG
-\\\
-
-### List All Beans
-
-\\\java
-@Component
-public class BeanLister implements ApplicationContextAware {
+    private UserRepository userRepository;
     
     @Override
-    public void setApplicationContext(ApplicationContext context) {
-        String[] beanNames = context.getBeanDefinitionNames();
-        System.out.println("Registered Beans:");
-        for (String name : beanNames) {
-            System.out.println("  - " + name);
-        }
+    public UserDetails loadUserByUsername(String username) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new UsernameNotFoundException(username));
+        
+        return org.springframework.security.core.userdetails.User
+            .withUsername(user.getUsername())
+            .password(user.getPassword())
+            .authorities(user.getRoles())
+            .build();
     }
 }
-\\\
+```
+
+### Phase 4: CORS Configuration
+
+```java
+@Configuration
+public class CorsConfig {
+    
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(Arrays.asList(
+            "http://localhost:3000",
+            "https://app.example.com"
+        ));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE"));
+        config.setAllowedHeaders(Arrays.asList("*"));
+        config.setAllowCredentials(true);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+}
+```
 
 ---
 
-##  Configuration Checklist
+## 📖 Related Documentation
 
-When creating a new configuration class:
-
-- [ ] Class marked with \@Configuration\
-- [ ] Named \{Feature}Config\ following convention
-- [ ] Extensive JavaDoc explaining purpose
-- [ ] \@Bean\ methods return specific types
-- [ ] Environment variables for sensitive values
-- [ ] \@ConditionalOn*\ if conditionally loaded
-- [ ] Profile-specific configurations in separate files
-- [ ] Test configuration class for testing
-- [ ] Error handling for initialization failures
-- [ ] Logging for debugging
+- [TaskController](../api/README.md) - Endpoints requiring authentication
+- [Exception Handling](../exception/README.md) - 401/403 error responses
+- [Application Properties](../../resources/APPLICATION_YML_CONFIGURATION.md) - Security settings
 
 ---
 
-##  Related Documentation
-
-- **ARCHITECTURE.md** - Overall system architecture
-- **README.md** - Main project overview
-- **application.yml** - Configuration properties explanation
-- **Security Layer** - JWT and authentication implementation
-- **Exception Handling** - Global error handling strategy
-
----
-
-##  Configuration File Locations
-
-\\\
-src/main/resources/
- application.yml              # Main configuration
- application-dev.yml          # Development profile
- application-prod.yml         # Production profile
- application-test.yml         # Testing profile
- db/
-    migration/               # Flyway migrations
-        V1__initial_schema.sql
-        V2__add_indexes.sql
- templates/                   # Email templates, etc.
-\\\
-
----
-
-##  Quick Reference
-
-| Configuration | Purpose | File |
-|--------------|---------|------|
-| Database | JPA, Hibernate, Flyway | JpaConfig.java |
-| Security | JWT, Auth, CORS | SecurityConfig.java |
-| API Docs | Swagger/OpenAPI | OpenApiConfig.java |
-| JSON | Serialization | JacksonConfig.java |
-| Web | CORS, interceptors | WebConfig.java |
-| Errors | Exception handling | GlobalExceptionHandler.java |
-
----
-
-**Last Updated:** December 1, 2025  
-**Version:** 1.0.0  
-**Status:** Complete
+**Last Updated:** December 15, 2025  
+**Version:** 0.5.0 - MVP Phase  
+**Status:** Basic Auth implemented, JWT and RBAC pending

@@ -1,937 +1,789 @@
-﻿# DTO Layer (Data Transfer Objects)
+# DTO Layer (Data Transfer Objects)
 
-##  Overview
+## 📋 Overview
 
-The **DTO layer** defines the contracts between the API and external clients. DTOs (Data Transfer Objects) decouple the API interface from the domain model, allowing the database schema and API contracts to evolve independently.
+**Purpose:** Define API contracts for request/response objects, separate from domain entities.
 
-**Location:** \src/main/java/com/taskmanagement/dto/\
+**Location:** `src/main/java/com/taskmanagement/dto/`
 
-**Responsibility:** Define request/response structures for API endpoints without exposing internal domain logic
+**Pattern:** DTO Pattern - decouples API interface from database schema
 
----
-
-##  Core Responsibilities
-
-### 1. Request Validation
-- Validate incoming data from clients using Bean Validation
-- Define constraints (\@NotBlank\, \@NotNull\, \@Email\, etc.)
-- Provide meaningful error messages
-- Prevent invalid data from reaching services
-
-### 2. Response Formatting
-- Convert domain entities to safe response objects
-- Hide internal details and implementation
-- Include only necessary fields in responses
-- Ensure consistent response structure
-
-### 3. API Contract Definition
-- Define the exact shape of API requests/responses
-- Separate from domain entity definitions
-- Support API versioning and evolution
-- Document expected data types
-
-### 4. Data Mapping
-- Convert between DTOs and domain entities
-- Handle nested object conversion
-- Manage optional and required fields
-- Support partial updates
-
-### 5. Type Safety
-- Use specific types instead of generic objects
-- Provide compile-time safety
-- Enable IDE code completion
-- Improve code readability
+**Current Status:**  
+✅ **MVP Phase** - Task CRUD DTOs implemented  
+🔲 **Future** - User/Project/Comment DTOs, mappers, validation groups
 
 ---
 
-##  Folder Structure
+## 📁 Current Structure
 
-\\\
+```
 dto/
- request/
-    CreateTaskRequest.java
-    UpdateTaskRequest.java
-    UpdateTaskStatusRequest.java
-    CreateUserRequest.java
-    UpdateUserRequest.java
-    LoginRequest.java
-    README.md
- response/
-    TaskResponse.java
-    UserResponse.java
-    ProjectResponse.java
-    CommentResponse.java
-    LoginResponse.java
-    README.md
- mapper/
-    TaskMapper.java
-    UserMapper.java
-    README.md
- README.md                  # This file
-\\\
+├── request/
+│   ├── CreateTaskRequest.java      # ✅ POST /api/tasks
+│   └── UpdateTaskRequest.java      # ✅ PUT /api/tasks/{id}
+├── response/
+│   ├── TaskResponse.java           # ✅ All task endpoints
+│   └── UserResponse.java           # ✅ NEW: User API endpoints
+└── README.md                       # This file
+```
+
+**Note:** Task and User response DTOs implemented. No User request DTOs (CREATE/UPDATE not implemented yet). No Project or Comment DTOs yet.
 
 ---
 
-##  Key Concepts
+## 🎯 Core Responsibilities
 
-### Request DTOs
+### ✅ Currently Implemented
 
-Request DTOs represent data sent by clients to the server. They include validation constraints.
+1. **Request Validation**
+   - Bean Validation annotations (@NotBlank, @NotNull, @Size, etc.)
+   - Meaningful error messages
+   - Prevent invalid data reaching services
 
-**Naming Convention:** \{Action}{Domain}Request\
-- CreateTaskRequest
-- UpdateTaskRequest
-- LoginRequest
-- CreateUserRequest
+2. **Response Formatting**
+   - Convert Task entity to TaskResponse DTO
+   - Include nested DTOs (UserSummary, ProjectSummary)
+   - Consistent response structure
 
-**Anatomy:**
+3. **API Contract Definition**
+   - Clear request/response structures
+   - Type-safe interfaces
+   - Documentation through code
 
-\\\java
+### 🔲 Not Yet Implemented
+
+- DTO Mappers (manual conversion in entity)
+- Validation groups (create vs update)
+- Pagination DTOs
+- Error response DTOs (defined in exception package)
+- User/Project/Comment DTOs
+
+---
+
+## 1. CreateTaskRequest
+
+**Location:** [CreateTaskRequest.java](request/CreateTaskRequest.java)
+
+**Purpose:** Request DTO for creating new tasks
+
+**Used by:** `POST /api/tasks`
+
+### Structure
+
+```java
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class CreateTaskRequest {
-    
-    // Required fields
-    @NotBlank(message = "Title is required")
-    @Size(min = 3, max = 255, message = "Title must be between 3 and 255 characters")
-    private String title;
-    
-    @NotBlank(message = "Description is required")
-    @Size(min = 10, max = 2000, message = "Description must be between 10 and 2000 characters")
-    private String description;
-    
-    // Optional fields
-    @Positive(message = "Project ID must be positive")
-    private Long projectId;
-    
-    @NotNull(message = "Assignee is required")
-    @Positive(message = "Assignee ID must be positive")
-    private Long assigneeId;
-    
-    // Date constraints
-    @NotNull(message = "Due date is required")
-    @FutureOrPresent(message = "Due date must be in the future or today")
-    private LocalDateTime dueDate;
-    
-    // Priority field
-    @Pattern(regexp = "LOW|MEDIUM|HIGH|CRITICAL", message = "Priority must be one of: LOW, MEDIUM, HIGH, CRITICAL")
-    private String priority;
-}
-\\\
-
-### Response DTOs
-
-Response DTOs represent data sent by the server to clients. They transform domain entities into safe API responses.
-
-**Naming Convention:** \{Domain}Response\
-- TaskResponse
-- UserResponse
-- ProjectResponse
-- LoginResponse
-
-**Anatomy:**
-
-\\\java
-@Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class TaskResponse {
-    
-    // Primary fields
-    private Long id;
-    private String title;
-    private String description;
-    private String status;
-    private String priority;
-    
-    // Nested objects
-    private UserResponse assignee;
-    private ProjectResponse project;
-    
-    // Metadata
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private String createdBy;
-    
-    // Count fields
-    private Integer commentCount;
-    private Integer attachmentCount;
-    
-    /**
-     * Convert from domain entity
-     * Handles null checks and nested conversions
-     */
-    public static TaskResponse from(Task task) {
-        if (task == null) return null;
-        
-        return TaskResponse.builder()
-            .id(task.getId())
-            .title(task.getTitle())
-            .description(task.getDescription())
-            .status(task.getStatus().toString())
-            .priority(task.getPriority().toString())
-            .assignee(UserResponse.from(task.getAssignee()))
-            .project(ProjectResponse.from(task.getProject()))
-            .createdAt(task.getCreatedAt())
-            .updatedAt(task.getUpdatedAt())
-            .createdBy(task.getCreatedBy())
-            .commentCount(task.getComments().size())
-            .attachmentCount(task.getAttachments().size())
-            .build();
-    }
-    
-    /**
-     * Convert list of entities
-     */
-    public static List<TaskResponse> from(List<Task> tasks) {
-        return tasks.stream()
-            .map(TaskResponse::from)
-            .collect(Collectors.toList());
-    }
-}
-\\\
-
----
-
-##  Common Validation Annotations
-
-### String Validations
-
-\\\java
-@NotBlank              // Required, not blank
-@NotNull               // Required, can be blank
-@NotEmpty              // Required, size > 0
-@Size(min=3, max=255)  // Length constraints
-@Pattern(regexp="...")  // Regex pattern
-@Email                 // Valid email format
-@URL                   // Valid URL format
-\\\
-
-### Numeric Validations
-
-\\\java
-@NotNull               // Required
-@Positive              // > 0
-@PositiveOrZero        // >= 0
-@Negative              // < 0
-@Min(value=18)         // Minimum value
-@Max(value=100)        // Maximum value
-@DecimalMin("10.5")    // Decimal minimum
-@DecimalMax("99.99")   // Decimal maximum
-\\\
-
-### Date/Time Validations
-
-\\\java
-@Past                  // Must be in the past
-@PastOrPresent         // Must be past or today
-@Future                // Must be in the future
-@FutureOrPresent       // Must be future or today
-\\\
-
-### Collection Validations
-
-\\\java
-@NotEmpty              // List/Set not empty
-@Size(min=1, max=10)   // List size constraints
-@Valid                 // Validate nested objects
-\\\
-
----
-
-##  DTO Mapping Patterns
-
-### Pattern 1: Static Factory Methods
-
-\\\java
-public class TaskResponse {
-    
-    public static TaskResponse from(Task task) {
-        return TaskResponse.builder()
-            .id(task.getId())
-            .title(task.getTitle())
-            // ... more mappings
-            .build();
-    }
-    
-    public static List<TaskResponse> from(List<Task> tasks) {
-        return tasks.stream()
-            .map(TaskResponse::from)
-            .collect(Collectors.toList());
-    }
-}
-
-// Usage in controller
-TaskResponse response = TaskResponse.from(task);
-\\\
-
-### Pattern 2: Constructor with Entity Parameter
-
-\\\java
-@Data
-public class UserResponse {
-    private Long id;
-    private String name;
-    private String email;
-    
-    // Constructor that converts from entity
-    public UserResponse(User user) {
-        this.id = user.getId();
-        this.name = user.getName();
-        this.email = user.getEmail();
-    }
-}
-
-// Usage
-UserResponse response = new UserResponse(user);
-\\\
-
-### Pattern 3: Builder Pattern
-
-\\\java
-@Data
-@Builder
-public class ProjectResponse {
-    private Long id;
-    private String name;
-    private String description;
-    
-    public static ProjectResponse from(Project project) {
-        return ProjectResponse.builder()
-            .id(project.getId())
-            .name(project.getName())
-            .description(project.getDescription())
-            .build();
-    }
-}
-
-// Usage
-ProjectResponse response = ProjectResponse.builder()
-    .id(1L)
-    .name("My Project")
-    .description("Description")
-    .build();
-\\\
-
-### Pattern 4: Mapper Service (Phase 2+)
-
-\\\java
-@Service
-public class TaskMapper {
-    
-    public TaskResponse toResponse(Task task) {
-        if (task == null) return null;
-        
-        return TaskResponse.builder()
-            .id(task.getId())
-            .title(task.getTitle())
-            // ... detailed mapping logic
-            .build();
-    }
-    
-    public Task toEntity(CreateTaskRequest request) {
-        Task task = new Task();
-        task.setTitle(request.getTitle());
-        task.setDescription(request.getDescription());
-        return task;
-    }
-    
-    public List<TaskResponse> toResponses(List<Task> tasks) {
-        return tasks.stream()
-            .map(this::toResponse)
-            .collect(Collectors.toList());
-    }
-}
-\\\
-
----
-
-##  Complete Example: Task DTOs
-
-### CreateTaskRequest
-
-\\\java
-/**
- * Request DTO for creating a new task
- * Contains validation rules for input data
- */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class CreateTaskRequest {
     
     @NotBlank(message = "Task title is required")
-    @Size(min = 5, max = 255, message = "Title must be between 5 and 255 characters")
+    @Size(min = 10, max = 2000, message = "Title must be between 10 and 2000 characters")
     private String title;
     
     @NotBlank(message = "Task description is required")
-    @Size(min = 20, max = 2000, message = "Description must be between 20 and 2000 characters")
+    @Size(min = 10, max = 2000, message = "Description must be between 10 and 2000 characters")
     private String description;
-    
-    @NotNull(message = "Project ID is required")
-    @Positive(message = "Project ID must be a positive number")
-    private Long projectId;
-    
-    @NotNull(message = "Assignee is required")
-    @Positive(message = "Assignee ID must be a positive number")
-    private Long assigneeId;
-    
-    @NotNull(message = "Due date is required")
-    @FutureOrPresent(message = "Due date must be in the future or today")
-    private LocalDateTime dueDate;
     
     @NotNull(message = "Priority is required")
-    @Pattern(regexp = "LOW|MEDIUM|HIGH|CRITICAL", message = "Priority must be LOW, MEDIUM, HIGH, or CRITICAL")
-    private String priority;
+    private TaskPriority priority;  // LOW, MEDIUM, HIGH, CRITICAL
     
-    // Optional field
-    @Size(max = 500, message = "Notes must not exceed 500 characters")
-    private String notes;
+    @NotNull(message = "Due date is required")
+    @FutureOrPresent(message = "Due date must be in the present or future")
+    private LocalDateTime dueDate;
+    
+    @Min(value = 0, message = "Estimated hours cannot be negative")
+    @Max(value = 999, message = "Estimated hours cannot exceed 999")
+    private Integer estimatedHours;  // Optional
+    
+    @Size(max = 1000, message = "Notes cannot exceed 1000 characters")
+    private String notes;  // Optional
+    
+    @NotNull(message = "Assignee ID is required")
+    @Positive(message = "Assignee ID must be positive")
+    private Long assigneeId;  // Required
+    
+    @NotNull(message = "Project ID is required")
+    @Positive(message = "Project ID must be positive")
+    private Long projectId;  // Required
 }
-\\\
+```
 
-### UpdateTaskRequest
+### Field Rules
 
-\\\java
-/**
- * Request DTO for updating an existing task
- * All fields are optional for partial updates
- */
+| Field | Required | Validation | Notes |
+|-------|----------|------------|-------|
+| `title` | ✅ Yes | 10-2000 chars | Task title |
+| `description` | ✅ Yes | 10-2000 chars | Detailed description |
+| `priority` | ✅ Yes | Enum | LOW/MEDIUM/HIGH/CRITICAL |
+| `dueDate` | ✅ Yes | Future or present | Deadline |
+| `estimatedHours` | ❌ No | 0-999 | Hours to complete |
+| `notes` | ❌ No | Max 1000 chars | Additional notes |
+| `assigneeId` | ✅ Yes | Positive number | Must exist in DB |
+| `projectId` | ✅ Yes | Positive number | Must exist in DB |
+
+### Example Request
+
+```json
+{
+  "title": "Implement user authentication with JWT tokens",
+  "description": "Add JWT-based authentication to secure API endpoints. Include token generation, validation, and refresh mechanisms.",
+  "priority": "HIGH",
+  "dueDate": "2025-12-20T17:00:00",
+  "estimatedHours": 16,
+  "notes": "Related to security epic PROJ-123",
+  "assigneeId": 1,
+  "projectId": 1
+}
+```
+
+### Design Decisions
+
+**Why use IDs instead of nested objects?**
+```java
+// ❌ Not this:
+private User assignee;
+private Project project;
+
+// ✅ This:
+private Long assigneeId;
+private Long projectId;
+```
+
+**Reasons:**
+- Client doesn't need to send full User/Project objects
+- Simpler API contract
+- Service layer validates existence
+- Prevents accidental entity creation
+
+**Why not include ID, status, timestamps?**
+- `id` - Auto-generated by database
+- `status` - Defaults to PENDING
+- `createdAt`, `updatedAt` - Auto-managed by JPA
+- `completedAt` - Set when status changes to COMPLETED
+
+---
+
+## 2. UpdateTaskRequest
+
+**Location:** [UpdateTaskRequest.java](request/UpdateTaskRequest.java)
+
+**Purpose:** Request DTO for updating existing tasks (partial updates)
+
+**Used by:** `PUT /api/tasks/{id}`
+
+### Structure
+
+```java
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class UpdateTaskRequest {
     
-    @Size(min = 5, max = 255, message = "Title must be between 5 and 255 characters")
-    private String title;
+    @Size(min = 3, max = 255, message = "Title must be between 3 and 255 characters")
+    private String title;  // Optional
     
-    @Size(min = 20, max = 2000, message = "Description must be between 20 and 2000 characters")
-    private String description;
+    @Size(min = 10, max = 2000, message = "Description must be between 10 and 2000 characters")
+    private String description;  // Optional
     
-    @Positive(message = "Assignee ID must be a positive number")
-    private Long assigneeId;
+    private TaskStatus status;  // Optional
     
-    @FutureOrPresent(message = "Due date must be in the future or today")
-    private LocalDateTime dueDate;
+    private TaskPriority priority;  // Optional
     
-    @Pattern(regexp = "LOW|MEDIUM|HIGH|CRITICAL", message = "Priority must be LOW, MEDIUM, HIGH, or CRITICAL")
-    private String priority;
+    @FutureOrPresent(message = "Due date must be in the present or future")
+    private LocalDateTime dueDate;  // Optional
     
-    @Size(max = 500, message = "Notes must not exceed 500 characters")
-    private String notes;
+    @Min(value = 0, message = "Estimated hours cannot be negative")
+    @Max(value = 999, message = "Estimated hours cannot exceed 999")
+    private Integer estimatedHours;  // Optional
+    
+    @Size(max = 1000, message = "Notes cannot exceed 1000 characters")
+    private String notes;  // Optional
+    
+    @Positive(message = "Assignee ID must be positive")
+    private Long assigneeId;  // Optional
 }
-\\\
+```
 
-### TaskResponse
+### Key Features
 
-\\\java
-/**
- * Response DTO for task data
- * Converts domain entity to API-safe format
- */
+**1. All Fields Optional (Partial Update)**
+```java
+// Only update title:
+{
+  "title": "Updated title"
+}
+
+// Only update status:
+{
+  "status": "IN_PROGRESS"
+}
+
+// Update multiple fields:
+{
+  "title": "New title",
+  "status": "IN_PROGRESS",
+  "assigneeId": 2
+}
+```
+
+**2. Validation Only When Provided**
+- If field is null → not updated
+- If field is provided → validation applies
+- Service layer handles null checks
+
+**3. Cannot Update:**
+- `id` - Immutable
+- `projectId` - Cannot change project (business rule)
+- `createdAt`, `updatedAt` - Auto-managed
+- `completedAt` - Auto-set when status = COMPLETED
+
+### Example Requests
+
+**Change assignee:**
+```json
+{
+  "assigneeId": 3
+}
+```
+
+**Update status and completion:**
+```json
+{
+  "status": "COMPLETED"
+}
+```
+_(Service automatically sets `completedAt`)_
+
+**Update multiple fields:**
+```json
+{
+  "title": "Revised: Implement JWT authentication",
+  "priority": "CRITICAL",
+  "dueDate": "2025-12-18T17:00:00",
+  "notes": "Deadline moved up due to security audit"
+}
+```
+
+### Current Limitation
+
+❌ **Cannot remove assignee:**
+```json
+{
+  "assigneeId": null  // ❌ Will fail - assignee is required
+}
+```
+
+**Reason:** Task entity has `@JoinColumn(nullable = false)` on assignee field.
+
+---
+
+## 3. UserResponse ✅ NEW
+
+**Location:** [UserResponse.java](response/UserResponse.java)
+
+**Purpose:** Response DTO for User API endpoints
+
+**Used by:**
+- `GET /api/users` (returns List<UserResponse>)
+- `GET /api/users/{id}` (returns UserResponse)
+- `POST /api/users/{id}/restore` (returns UserResponse after restore)
+
+### Structure
+
+```java
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TaskResponse {
+@Builder
+public class UserResponse {
     
     private Long id;
-    private String title;
-    private String description;
-    private String status;
-    private String priority;
-    private LocalDateTime dueDate;
-    private String notes;
-    
-    // Related objects
-    private UserResponse assignee;
-    private ProjectResponse project;
-    
-    // Metadata
+    private String username;
+    private String fullName;
+    private String email;
+    private boolean active;
+    private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private String createdBy;
-    private String updatedBy;
+    
+    /**
+     * Factory method to convert User entity to UserResponse DTO
+     */
+    public static UserResponse from(User user) {
+        return UserResponse.builder()
+            .id(user.getId())
+            .username(user.getUsername())
+            .fullName(user.getFullName())
+            .email(user.getEmail())
+            .active(user.isActive())
+            .lastLoginAt(user.getLastLoginAt())
+            .createdAt(user.getCreatedAt())
+            .updatedAt(user.getUpdatedAt())
+            .build();
+    }
+}
+```
+
+### Fields
+
+| Field | Type | Description | Source |
+|-------|------|-------------|--------|
+| `id` | Long | User ID | user.getId() |
+| `username` | String | Login username | user.getUsername() |
+| `fullName` | String | Full name | user.getFullName() |
+| `email` | String | Email address | user.getEmail() |
+| `active` | boolean | Account status | user.isActive() |
+| `lastLoginAt` | LocalDateTime | Last login time | user.getLastLoginAt() |
+| `createdAt` | LocalDateTime | Account creation | user.getCreatedAt() |
+| `updatedAt` | LocalDateTime | Last update | user.getUpdatedAt() |
+
+### Security Notes
+
+**Fields EXCLUDED for security:**
+- ❌ `passwordHash` - Never expose password hashes
+- ❌ `deleted` - Internal soft delete flag
+- ❌ `deletedAt` - Internal audit field
+- ❌ `deletedBy` - Internal audit field
+- ❌ `roles` - Security concern (will add when implementing RBAC)
+
+**Why exclude deleted fields?**
+- GET /api/users only returns active users (@Where filter)
+- Client doesn't need deletion metadata
+- Keep API response clean
+
+### Example Response
+
+```json
+{
+  "id": 1,
+  "username": "john_doe",
+  "fullName": "John Doe",
+  "email": "john@example.com",
+  "active": true,
+  "lastLoginAt": "2025-12-16T10:30:00",
+  "createdAt": "2025-12-01T08:00:00",
+  "updatedAt": "2025-12-16T10:30:00"
+}
+```
+
+### Conversion Method
+
+**Static Factory Pattern:**
+```java
+// In UserService
+User user = userRepository.findById(id).orElseThrow();
+return UserResponse.from(user);  // ✅ Clean conversion
+```
+
+**Why static factory method?**
+- ✅ Encapsulates conversion logic
+- ✅ Reusable across service layer
+- ✅ Single responsibility (DTO knows how to create itself)
+- ✅ Type-safe (compiler checks)
+
+**Alternative approaches (not used):**
+```java
+// ❌ MapStruct (overkill for simple DTO)
+// ❌ ModelMapper (reflection overhead)
+// ❌ Manual mapping in service (violates SRP)
+```
+
+---
+
+## 4. TaskResponse
+
+**Location:** [TaskResponse.java](response/TaskResponse.java)
+
+**Purpose:** Response DTO for all task-related endpoints
+
+**Used by:**
+- `GET /api/tasks/{id}`
+- `POST /api/tasks` (after creation)
+- `PUT /api/tasks/{id}` (after update)
+
+### Structure
+
+```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class TaskResponse {
+    
+    // Core fields
+    private Long id;
+    private String title;
+    private String description;
+    private TaskStatus status;
+    private TaskPriority priority;
+    
+    // Dates
+    private LocalDateTime dueDate;
+    private LocalDateTime startDate;  // ⚠️ Always null (not used)
+    private LocalDateTime completedAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    
+    // Metadata
+    private Integer estimatedHours;
+    private String notes;
+    
+    // Relationships (nested DTOs)
+    private UserSummary assignee;
+    private ProjectSummary project;
     
     // Counts
-    private Integer commentCount;
-    private Integer attachmentCount;
+    private Integer commentCount;      // ⚠️ Always 0 (not implemented)
+    private Integer attachmentCount;   // ⚠️ Always 0 (not implemented)
     
-    /**
-     * Convert from Task entity
-     * Handles null safety and nested conversions
-     */
-    public static TaskResponse from(Task task) {
-        if (task == null) return null;
-        
-        return TaskResponse.builder()
-            .id(task.getId())
-            .title(task.getTitle())
-            .description(task.getDescription())
-            .status(task.getStatus().name())
-            .priority(task.getPriority().name())
-            .dueDate(task.getDueDate())
-            .notes(task.getNotes())
-            .assignee(UserResponse.from(task.getAssignee()))
-            .project(ProjectResponse.from(task.getProject()))
-            .createdAt(task.getCreatedAt())
-            .updatedAt(task.getUpdatedAt())
-            .createdBy(task.getCreatedBy())
-            .updatedBy(task.getUpdatedBy())
-            .commentCount(task.getComments() != null ? task.getComments().size() : 0)
-            .attachmentCount(task.getAttachments() != null ? task.getAttachments().size() : 0)
-            .build();
-    }
+    // Computed fields
+    private Boolean overdue;           // ⚠️ Not computed yet
+    private Long hoursUntilDue;        // ⚠️ Not computed yet
     
-    /**
-     * Convert from Page of tasks
-     */
-    public static Page<TaskResponse> from(Page<Task> tasks) {
-        return tasks.map(TaskResponse::from);
-    }
-    
-    /**
-     * Convert from List of tasks
-     */
-    public static List<TaskResponse> from(List<Task> tasks) {
-        return tasks.stream()
-            .map(TaskResponse::from)
-            .collect(Collectors.toList());
-    }
-}
-\\\
-
----
-
-##  Security Considerations
-
-### 1. Never Expose Sensitive Data
-
-\\\java
-// BAD: Exposes password hash
-@Data
-public class UserResponse {
-    private Long id;
-    private String name;
-    private String email;
-    private String passwordHash;  // NEVER!
-}
-
-// GOOD: Only public data
-@Data
-public class UserResponse {
-    private Long id;
-    private String name;
-    private String email;
-    private LocalDateTime createdAt;
-}
-\\\
-
-### 2. Validate All Input
-
-\\\java
-// BAD: No validation
-@Data
-public class LoginRequest {
-    private String username;
-    private String password;
-}
-
-// GOOD: With validation
-@Data
-public class LoginRequest {
-    @NotBlank(message = "Username is required")
-    @Size(min = 3, max = 50)
-    private String username;
-    
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, max = 128, message = "Password must be at least 8 characters")
-    private String password;
-}
-\\\
-
-### 3. Filter Sensitive Fields
-
-\\\java
-@Data
-@JsonIgnoreProperties(ignoreUnknown = true)  // Ignore unknown fields
-public class TaskResponse {
-    
-    private Long id;
-    private String title;
-    
-    @JsonIgnore  // Never expose internal ID
-    private String internalProcessId;
-    
-    @JsonProperty("createdBy")  // Rename for API
-    private String internalCreatorName;
-}
-\\\
-
----
-
-##  Testing DTOs
-
-### Validation Testing
-
-\\\java
-@SpringBootTest
-class CreateTaskRequestValidationTest {
-    
-    @Autowired
-    private Validator validator;
-    
-    @Test
-    void validRequest_PassesValidation() {
-        CreateTaskRequest request = new CreateTaskRequest();
-        request.setTitle("Valid Title");
-        request.setDescription("Valid description with at least 20 characters");
-        request.setProjectId(1L);
-        request.setAssigneeId(2L);
-        request.setDueDate(LocalDateTime.now().plusDays(1));
-        request.setPriority("HIGH");
-        
-        Set<ConstraintViolation<CreateTaskRequest>> violations = validator.validate(request);
-        assertTrue(violations.isEmpty());
-    }
-    
-    @Test
-    void missingTitle_FailsValidation() {
-        CreateTaskRequest request = new CreateTaskRequest();
-        request.setTitle(null);
-        request.setDescription("Valid description");
-        
-        Set<ConstraintViolation<CreateTaskRequest>> violations = validator.validate(request);
-        assertFalse(violations.isEmpty());
-        assertTrue(violations.stream()
-            .anyMatch(v -> v.getMessage().contains("title is required")));
-    }
-    
-    @Test
-    void invalidPriority_FailsValidation() {
-        CreateTaskRequest request = new CreateTaskRequest();
-        request.setTitle("Title");
-        request.setDescription("Valid description with at least 20 characters");
-        request.setPriority("INVALID");
-        
-        Set<ConstraintViolation<CreateTaskRequest>> violations = validator.validate(request);
-        assertFalse(violations.isEmpty());
-    }
-}
-\\\
-
-### Mapping Testing
-
-\\\java
-@SpringBootTest
-class TaskResponseMappingTest {
-    
-    @Test
-    void from_WithValidTask_ReturnsResponse() {
-        Task task = new Task();
-        task.setId(1L);
-        task.setTitle("Test Task");
-        task.setDescription("Test Description");
-        task.setStatus(TaskStatus.PENDING);
-        
-        TaskResponse response = TaskResponse.from(task);
-        
-        assertEquals(1L, response.getId());
-        assertEquals("Test Task", response.getTitle());
-        assertEquals("PENDING", response.getStatus());
-    }
-    
-    @Test
-    void from_WithNullTask_ReturnsNull() {
-        TaskResponse response = TaskResponse.from(null);
-        assertNull(response);
-    }
-    
-    @Test
-    void from_WithNestedObjects_MapsCorrectly() {
-        User assignee = new User();
-        assignee.setId(5L);
-        assignee.setName("John Doe");
-        
-        Task task = new Task();
-        task.setId(1L);
-        task.setTitle("Task");
-        task.setAssignee(assignee);
-        
-        TaskResponse response = TaskResponse.from(task);
-        
-        assertNotNull(response.getAssignee());
-        assertEquals("John Doe", response.getAssignee().getName());
-    }
-}
-\\\
-
----
-
-##  Best Practices
-
-### 1. Separation of Concerns
-
-\\\java
-// BAD: Mixed request and response
-@Data
-public class TaskDTO {
-    private Long id;  // Not needed in request
-    private String title;
-    private String description;
-    private LocalDateTime createdAt;  // Not needed in request
-}
-
-// GOOD: Separate request and response
-@Data
-public class CreateTaskRequest {
-    private String title;
-    private String description;
-}
-
-@Data
-public class TaskResponse {
-    private Long id;
-    private String title;
-    private String description;
-    private LocalDateTime createdAt;
-}
-\\\
-
-### 2. Null-Safe Conversions
-
-\\\java
-// BAD: Can throw NullPointerException
-public static TaskResponse from(Task task) {
-    return TaskResponse.builder()
-        .id(task.getId())
-        .assignee(UserResponse.from(task.getAssignee()))  // Dangerous if null
-        .build();
-}
-
-// GOOD: Handle nulls safely
-public static TaskResponse from(Task task) {
-    if (task == null) return null;
-    
-    return TaskResponse.builder()
-        .id(task.getId())
-        .assignee(task.getAssignee() != null ? UserResponse.from(task.getAssignee()) : null)
-        .build();
-}
-\\\
-
-### 3. Consistent Naming
-
-\\\java
-// Request DTOs
-CreateTaskRequest
-UpdateTaskRequest
-UpdateTaskStatusRequest
-
-// Response DTOs
-TaskResponse
-UserResponse
-ProjectResponse
-
-// Mapper classes
-TaskMapper
-UserMapper
-\\\
-
-### 4. Use Immutable DTOs
-
-\\\java
-// For response DTOs, consider immutability
-@Value  // Lombok: immutable
-public class TaskResponse {
-    Long id;
-    String title;
-    String description;
-    UserResponse assignee;
-}
-\\\
-
-### 5. Document Complex Mappings
-
-\\\java
-/**
- * Converts Task entity to TaskResponse DTO
- * 
- * Mapping rules:
- * - status enum is converted to string
- * - priority enum is converted to string
- * - nested assignee and project are recursively converted
- * - comment and attachment counts are calculated
- * - null assignee/project result in null in response
- * 
- * @param task the source entity
- * @return TaskResponse with all mappings applied, or null if task is null
- */
-public static TaskResponse from(Task task) {
-    // Implementation
-}
-\\\
-
----
-
-##  Common DTO Patterns
-
-### List Response with Pagination
-
-\\\java
-@Data
-@Builder
-public class PaginatedResponse<T> {
-    private List<T> content;
-    private int page;
-    private int size;
-    private long totalElements;
-    private int totalPages;
-    private boolean first;
-    private boolean last;
-    
-    public static <T> PaginatedResponse<T> from(Page<T> page) {
-        return PaginatedResponse.<T>builder()
-            .content(page.getContent())
-            .page(page.getNumber())
-            .size(page.getSize())
-            .totalElements(page.getTotalElements())
-            .totalPages(page.getTotalPages())
-            .first(page.isFirst())
-            .last(page.isLast())
-            .build();
-    }
-}
-
-// Usage in controller
-Page<Task> tasks = taskService.listTasks(pageable);
-return ResponseEntity.ok(PaginatedResponse.from(tasks.map(TaskResponse::from)));
-\\\
-
-### Success Response Wrapper
-
-\\\java
-@Data
-@Builder
-public class ApiResponse<T> {
-    private boolean success;
-    private T data;
-    private String message;
-    private long timestamp;
-    
-    public static <T> ApiResponse<T> success(T data) {
-        return ApiResponse.<T>builder()
-            .success(true)
-            .data(data)
-            .timestamp(System.currentTimeMillis())
-            .build();
-    }
-}
-\\\
-
-### Error Response
-
-\\\java
-@Data
-@Builder
-public class ErrorResponse {
-    private String code;
-    private String message;
-    private long timestamp;
-    private String path;
-    private List<FieldError> errors;
+    // Nested DTOs
     
     @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
     @Builder
-    public static class FieldError {
-        private String field;
-        private String message;
+    public static class UserSummary {
+        private Long id;
+        private String username;
+        private String fullName;
+        private String email;
+        // No password, no sensitive data
+    }
+    
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Builder
+    public static class ProjectSummary {
+        private Long id;
+        private String name;
+        private String description;
     }
 }
-\\\
+```
 
----
+### Conversion Method
 
-##  DTO Checklist
-
-When creating new DTOs:
-
-- [ ] Request DTOs in \dto/request/\ folder
-- [ ] Response DTOs in \dto/response/\ folder
-- [ ] Validation annotations on request fields
-- [ ] \@NotBlank\/\@NotNull\ for required fields
-- [ ] \@Size\/\@Pattern\ for format constraints
-- [ ] \@Valid\ for nested object validation
-- [ ] Static \rom()\ methods for conversion
-- [ ] Null-safe conversion logic
-- [ ] Builder pattern for response DTOs
-- [ ] Documentation for complex mappings
-- [ ] No sensitive data exposed
-- [ ] Unit tests for validation
-- [ ] Unit tests for mapping
-
----
-
-##  Related Documentation
-
-- **ARCHITECTURE.md** - Overall system architecture
-- **README.md** - Main project overview
-- **API Layer** - Controller implementation
-- **Domain Entities** - Entity definitions
-- **Service Layer** - Business logic
-
----
-
-##  Quick Examples
-
-### Creating a Task
-
-**Request:**
-\\\ash
-POST /api/tasks
-Content-Type: application/json
-Authorization: Bearer <token>
-
-{
-  "title": "Implement user dashboard",
-  "description": "Create a responsive dashboard for users to view their tasks",
-  "projectId": 1,
-  "assigneeId": 5,
-  "dueDate": "2025-12-15T17:00:00",
-  "priority": "HIGH"
+**Static factory method in TaskResponse:**
+```java
+public static TaskResponse from(Task task) {
+    return TaskResponse.builder()
+        .id(task.getId())
+        .title(task.getTitle())
+        .description(task.getDescription())
+        .status(task.getStatus())
+        .priority(task.getPriority())
+        .dueDate(task.getDueDate())
+        .startDate(task.getStartDate())
+        .completedAt(task.getCompletedAt())
+        .estimatedHours(task.getEstimatedHours())
+        .notes(task.getNotes())
+        .assignee(UserSummary.builder()
+            .id(task.getAssignee().getId())
+            .username(task.getAssignee().getUsername())
+            .fullName(task.getAssignee().getFullName())
+            .email(task.getAssignee().getEmail())
+            .build())
+        .project(ProjectSummary.builder()
+            .id(task.getProject().getId())
+            .name(task.getProject().getName())
+            .description(task.getProject().getDescription())
+            .build())
+        .commentCount(0)        // ⚠️ Hardcoded, should be task.getComments().size()
+        .attachmentCount(0)     // ⚠️ Hardcoded, should be task.getAttachments().size()
+        .overdue(false)         // ⚠️ Should check dueDate < now && status != COMPLETED
+        .hoursUntilDue(0L)      // ⚠️ Should calculate from dueDate
+        .createdAt(task.getCreatedAt())
+        .updatedAt(task.getUpdatedAt())
+        .build();
 }
-\\\
+```
 
-**Response (201 Created):**
-\\\json
+### Example Response
+
+```json
 {
-  "id": 123,
-  "title": "Implement user dashboard",
-  "description": "Create a responsive dashboard for users to view their tasks",
-  "status": "PENDING",
+  "id": 1,
+  "title": "Implement user authentication with JWT tokens",
+  "description": "Add JWT-based authentication...",
+  "status": "IN_PROGRESS",
   "priority": "HIGH",
-  "dueDate": "2025-12-15T17:00:00",
+  "dueDate": "2025-12-20T17:00:00",
+  "startDate": null,
+  "completedAt": null,
+  "estimatedHours": 16,
+  "notes": "Related to security epic PROJ-123",
   "assignee": {
-    "id": 5,
-    "name": "John Doe",
+    "id": 1,
+    "username": "john.doe",
+    "fullName": "John Doe",
     "email": "john@example.com"
   },
   "project": {
     "id": 1,
-    "name": "Web Platform"
+    "name": "Backend API",
+    "description": "Main backend REST API"
   },
-  "createdAt": "2025-12-01T10:30:00",
-  "updatedAt": "2025-12-01T10:30:00",
-  "createdBy": "admin",
   "commentCount": 0,
-  "attachmentCount": 0
+  "attachmentCount": 0,
+  "overdue": false,
+  "hoursUntilDue": 0,
+  "createdAt": "2025-12-10T10:30:00",
+  "updatedAt": "2025-12-14T14:20:00"
 }
-\\\
+```
+
+### Known Issues
+
+⚠️ **Fields Not Properly Computed:**
+
+1. **commentCount** - Always returns 0
+   ```java
+   // Current: .commentCount(0)
+   // Should be: .commentCount(task.getComments().size())
+   ```
+
+2. **attachmentCount** - Always returns 0
+   ```java
+   // Current: .attachmentCount(0)
+   // Should be: .attachmentCount(task.getAttachments().size())
+   ```
+
+3. **overdue** - Always returns false
+   ```java
+   // Should be:
+   LocalDateTime now = LocalDateTime.now();
+   boolean isOverdue = task.getDueDate().isBefore(now) && 
+                       task.getStatus() != TaskStatus.COMPLETED;
+   ```
+
+4. **hoursUntilDue** - Always returns 0
+   ```java
+   // Should be:
+   Duration duration = Duration.between(LocalDateTime.now(), task.getDueDate());
+   long hours = duration.toHours();
+   ```
+
+5. **startDate** - Always null (field not used)
 
 ---
 
-**Last Updated:** December 1, 2025  
-**Version:** 1.0.0  
-**Status:** Complete
+## ⚠️ Known Limitations
+
+### 1. No User/Project DTOs
+
+**Missing:**
+```java
+// These don't exist yet:
+CreateUserRequest
+UpdateUserRequest
+UserResponse
+
+CreateProjectRequest
+UpdateProjectRequest
+ProjectResponse
+```
+
+**Impact:**
+- Cannot create users via API (must insert directly to DB)
+- Cannot create projects via API
+- Cannot get user/project details
+
+### 2. No DTO Mappers
+
+**Current approach:**
+```java
+// Manual conversion in TaskResponse
+public static TaskResponse from(Task task) {
+    // Manual field mapping...
+}
+```
+
+**Better approach (future):**
+```java
+@Component
+public class TaskMapper {
+    TaskResponse toResponse(Task task);
+    Task toEntity(CreateTaskRequest request);
+    void updateEntity(UpdateTaskRequest request, Task task);
+}
+```
+
+**Benefits:**
+- Centralized mapping logic
+- Testable
+- Reusable
+- Can use MapStruct for automation
+
+### 3. No Validation Groups
+
+**Current:**
+```java
+// Same validation for create and update
+@Size(min = 10, max = 2000)
+private String title;
+```
+
+**Better (future):**
+```java
+@Size(min = 10, max = 2000, groups = {Create.class, Update.class})
+private String title;
+
+// In controller:
+@Validated(Create.class)
+public TaskResponse create(@RequestBody CreateTaskRequest request) {...}
+
+@Validated(Update.class)
+public TaskResponse update(@RequestBody UpdateTaskRequest request) {...}
+```
+
+### 4. No Pagination DTOs
+
+**Missing:**
+```java
+// These don't exist yet:
+PagedResponse<TaskResponse>
+PageRequest
+SortRequest
+```
+
+**Current workaround:**
+```java
+// Returns all tasks (no pagination)
+List<TaskResponse> getAllTasks();
+```
+
+---
+
+## 📚 Bean Validation Reference
+
+### Common Annotations Used
+
+```java
+// String validation
+@NotBlank                          // Not null and not empty
+@NotEmpty                          // Not null and size > 0  
+@Size(min = 3, max = 255)         // Length constraint
+@Email                            // Valid email format
+@Pattern(regexp = "...")          // Regex match
+
+// Number validation
+@NotNull                          // Not null
+@Positive                         // > 0
+@PositiveOrZero                   // >= 0
+@Min(0)                           // >= specified value
+@Max(999)                         // <= specified value
+
+// Date/Time validation
+@Past                             // Must be in past
+@PastOrPresent                    // Past or now
+@Future                           // Must be in future
+@FutureOrPresent                  // Future or now
+
+// Collection validation
+@NotEmpty                         // Collection not empty
+@Size(min = 1, max = 10)         // Collection size
+```
+
+### Custom Error Messages
+
+```java
+@NotBlank(message = "Task title is required")
+@Size(min = 10, max = 2000, message = "Title must be between 10 and 2000 characters")
+private String title;
+```
+
+**Response when validation fails:**
+```json
+{
+  "timestamp": "2025-12-14T10:30:00",
+  "status": 400,
+  "error": "Bad Request",
+  "errors": {
+    "title": "Task title is required",
+    "assigneeId": "Assignee ID must be positive"
+  }
+}
+```
+
+---
+
+## 🔮 Planned Enhancements
+
+### Phase 1: User & Project DTOs
+```java
+// User management
+CreateUserRequest, UpdateUserRequest, UserResponse
+
+// Project management
+CreateProjectRequest, UpdateProjectRequest, ProjectResponse
+
+// Comment DTOs
+CreateCommentRequest, CommentResponse
+```
+
+### Phase 2: DTO Mappers
+```java
+@Component
+public class TaskMapper {
+    TaskResponse toResponse(Task task);
+    Task toEntity(CreateTaskRequest request, User assignee, Project project);
+    void updateEntity(UpdateTaskRequest request, Task task);
+}
+
+// Or use MapStruct:
+@Mapper(componentModel = "spring")
+public interface TaskMapper {
+    // Auto-generated implementations
+}
+```
+
+### Phase 3: Pagination
+```java
+@Data
+public class PagedResponse<T> {
+    private List<T> content;
+    private int pageNumber;
+    private int pageSize;
+    private long totalElements;
+    private int totalPages;
+    private boolean first;
+    private boolean last;
+}
+```
+
+### Phase 4: Validation Groups
+```java
+public interface Create {}
+public interface Update {}
+
+@Data
+public class TaskRequest {
+    @NotNull(groups = Create.class)
+    private String title;
+    
+    @Size(min = 10, groups = {Create.class, Update.class})
+    private String description;
+}
+```
+
+---
+
+## 📖 Related Documentation
+
+- [TaskController](../api/README.md) - API endpoints using these DTOs
+- [TaskService](../service/README.md) - Business logic converting DTOs
+- [Task Entity](../entity/README.md) - Domain model
+- [Exception Handling](../exception/README.md) - Validation error responses
+
+---
+
+**Last Updated:** December 14, 2025  
+**Version:** 0.5.0 - MVP Phase  
+**Status:** Task DTOs complete, User/Project/Comment DTOs pending

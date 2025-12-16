@@ -9,7 +9,9 @@ import lombok.*;
 
 // Hibernate timestamps
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.OnDeleteAction;
 
 // Java built-in
 import java.time.LocalDateTime;
@@ -134,7 +136,7 @@ public class Task {
  * Lưu ý: Chỉ kiểm tra lúc tạo, không ngăn việc bị quá hạn sau đó
  */
     @NotNull(message = "Due date is required")
-    @FutureOrPresent(message = "Due date must be in the present or future")
+    //@FutureOrPresent(message = "Due date must be in the present or future")
     @Column(nullable = false)
     private LocalDateTime dueDate;
 
@@ -196,9 +198,9 @@ public class Task {
  *
  * Lý do: Không tồn tại task mà không có ai phụ trách
  */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "assignee_id", nullable = false)
-    @NotNull(message = "Task assignee is required")
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "assignee_id", nullable = true)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     private User assignee;
 
 /**
