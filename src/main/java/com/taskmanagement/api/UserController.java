@@ -1,11 +1,15 @@
 package com.taskmanagement.api;
 
+import com.taskmanagement.dto.request.CreateUserRequest;
+import com.taskmanagement.dto.request.UpdateUserRequest;
 import com.taskmanagement.dto.response.UserResponse;
 import com.taskmanagement.service.UserService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +34,69 @@ import java.util.List;
 public class UserController {
     
     private final UserService userService;
+
+    // ==================== CREATE USER ====================
+    
+    /**
+     * Tạo user mới
+     * 
+     * Endpoint: POST /api/users
+     * 
+     * Request:
+     * POST /api/users
+     * Content-Type: application/json
+     * Authorization: Basic YWRtaW46YWRtaW4=
+     * 
+     * Body:
+     * {
+     *   "username": "john_doe",
+     *   "email": "john@example.com",
+     *   "password": "SecurePass123!",
+     *   "fullName": "John Doe"
+     * }
+     * 
+     * Response (201 Created):
+     * Location: /api/users/10
+     * {
+     *   "id": 10,
+     *   "username": "john_doe",
+     *   "email": "john@example.com",
+     *   "fullName": "John Doe",
+     *   "active": true,
+     *   "lastLoginAt": null,
+     *   "createdAt": "2025-12-17T10:30:00",
+     *   "updatedAt": "2025-12-17T10:30:00"
+     * }
+     * 
+     * Response (400 Bad Request):
+     * {
+     *   "status": 400,
+     *   "error": "Validation Error",
+     *   "message": "Username must be between 3 and 50 characters"
+     * }
+     * 
+     * Response (409 Conflict):
+     * {
+     *   "status": 409,
+     *   "error": "Duplicate Resource",
+     *   "message": "Username already exists: john_doe"
+     * }
+     * 
+     * @param request CreateUserRequest với validation
+     * @return ResponseEntity 201 Created với UserResponse
+     */
+    @PostMapping
+    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
+        log.info("POST /api/users - Creating new user: {}", request.getUsername());
+
+        //STEP 1: Gọi Service (Business Logic)
+        UserResponse response = userService.createUser(request);
+        
+        log.info("User created successfully: userId ={}, username={}", response.getId(), response.getUsername());
+
+        //STEP 2: Trả về Response
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
 
     /**
      * Lấy danh sách tất cả users
@@ -151,6 +218,68 @@ public class UserController {
         UserResponse response = userService.getUserById(id);
 
         log.info("User retrieval successful: userId = {}, username ={}", response.getId(), response.getUsername());
+
+        //STEP 2: Trả về Response
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== UPDATE USER ====================
+    
+    /**
+     * Cập nhật user
+     * 
+     * Endpoint: PUT /api/users/{id}
+     * 
+     * Request:
+     * PUT /api/users/10
+     * Content-Type: application/json
+     * Authorization: Basic YWRtaW46YWRtaW4=
+     * 
+     * Body (Partial Update):
+     * {
+     *   "email": "newemail@example.com",
+     *   "fullName": "John Smith"
+     * }
+     * 
+     * Response (200 OK):
+     * {
+     *   "id": 10,
+     *   "username": "john_doe",
+     *   "email": "newemail@example.com",
+     *   "fullName": "John Smith",
+     *   "active": true,
+     *   "updatedAt": "2025-12-17T11:00:00"
+     * }
+     * 
+     * Response (404 Not Found):
+     * {
+     *   "status": 404,
+     *   "error": "User Not Found",
+     *   "message": "User not found with ID: 999"
+     * }
+     * 
+     * Response (409 Conflict):
+     * {
+     *   "status": 409,
+     *   "error": "Duplicate Resource",
+     *   "message": "Email already exists: newemail@example.com"
+     * }
+     * 
+     * @param id User ID
+     * @param request UpdateUserRequest với validation
+     * @return ResponseEntity 200 OK với UserResponse
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<UserResponse> updateUser(
+        @PathVariable Long id,
+        @Valid @RequestBody UpdateUserRequest request
+    ) {
+        log.info("PUT /api/users/{} - Updating user: {}", id);
+
+        //STEP 1: Gọi Service
+        UserResponse response = userService.updateUser(id, request);
+
+        log.info("User updated successfully: userId={}, username={}", response.getId(), response.getUsername());
 
         //STEP 2: Trả về Response
         return ResponseEntity.ok(response);

@@ -6,6 +6,7 @@ import lombok.*;
 import jakarta.validation.constraints.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * UpdateTaskRequest - DTO dùng để cập nhật một task hiện có
@@ -75,8 +76,8 @@ public class UpdateTaskRequest {
  * ID người được giao task mới (tùy chọn)
  * Cho phép gán lại task cho user khác
  */
-    @Positive(message = "Assignee ID must be positive")
-    private Long assigneeId;
+    @Size(min = 1, max = 10, message = "Task must have between 1 and 10 assignees")
+    private List<@Positive(message = "Assignee ID must be positive") Long> assigneeIds;
 
 /**
  * ID project mới (tùy chọn)

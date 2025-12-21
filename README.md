@@ -22,19 +22,19 @@ The **Task Management System** is an enterprise-grade application built using **
 - **Database:** PostgreSQL with JPA/Hibernate ORM
 - **Security:** Spring Security with Basic Authentication (JWT implementation ready for Phase 2)
 - **API:** RESTful API with comprehensive CRUD operations
-- **Current Features:** Task CRUD, User-Task assignment, Project-Task relationships
-- **Status:** MVP Phase - Core task management features implemented
+- **Current Features:** Task CRUD, Multi-User Assignment (N:N), Project-Task relationships
+- **Status:** v0.6.0 - MVP Phase with Hibernate 6.x workarounds implemented
 - **Monitoring:** Spring Boot Actuator for health checks
 
 ### Currently Implemented Features
 ✅ **Task Management:**
-  - Create tasks with assignee and project
-  - Get task by ID with full details (assignee, project)
-  - Update tasks (title, description, status, priority, assignee)
+  - Create tasks with multiple assignees (Many-to-Many relationship)
+  - Get task by ID with full details (assignees, project)
+  - Update tasks (title, description, status, priority, assignees)
   - Delete tasks (hard delete with cascade to comments/attachments)
   
 ✅ **Relationships:**
-  - Task → User (Many-to-One, assignee required)
+  - Task → User (Many-to-Many via task_assignees junction table)
   - Task → Project (Many-to-One, project required)
   - Task → Comments (One-to-Many with cascade delete)
   - Task → Attachments (One-to-Many with cascade delete)
@@ -147,14 +147,21 @@ java_project/                                 # Project root
 - 🔲 **Placeholder** - Folder/file exists but no implementation yet
 - ⭐ **Documentation** - README or configuration files
 
-### What's Actually Implemented (v0.5.0)
+### What's Actually Implemented (v0.6.0)
 
 **Backend Code:**
-- Task CRUD operations (Create, Read, Update, Delete)
-- Entity relationships (Task ↔ User, Task ↔ Project, Task ↔ Comments/Attachments)
+- Task CRUD operations with Many-to-Many assignees
+- Native SQL workarounds for Hibernate @Where filter issues
+- Entity relationships (Task ↔ Users N:N, Task ↔ Project N:1, Comments/Attachments 1:N)
 - Request validation with Bean Validation
 - Exception handling with consistent error responses
 - Basic Authentication with hardcoded users
+- Enhanced SQL logging for debugging
+
+**Recent Bug Fixes:**
+- Fixed empty assignees issue in GET /api/tasks/{id}
+- Implemented 3-step workaround for @Where filter + lazy loading
+- Added native query methods to bypass Hibernate filtering
 
 **Not Yet Implemented:**
 - User/Project management APIs
@@ -163,7 +170,7 @@ java_project/                                 # Project root
 - Utility classes
 - Event system
 - Unit/integration tests
-- Soft delete enforcement
+- Migration from @Where to @FilterDef
 
 ---
 
@@ -1107,14 +1114,42 @@ Examples:
 
 ## Known Issues & TODOs
 
-### Critical Issues
-1. **Assignee cannot be null** - Task entity requires assignee (optional=false, nullable=false)
-   - Impact: Cannot create unassigned tasks, cannot remove assignee
-   - Solution: Change to optional=true, nullable=true, add UNASSIGNED status
+### ⚠️ Critical Bug Fixed (v0.6.0)
 
-2. **Cannot delete users with tasks** - Foreign key constraint blocks user deletion
-   - Impact: Users cannot be deactivated/removed if they have tasks
-   - Solution: Add ON DELETE SET NULL or soft delete users
+**Issue: GET /api/tasks/{id} returns empty assignees array**
+- **Symptoms:** POST creates task with assignees successfully, but GET returns `"assignees": []`
+- **Root Cause:** Hibernate 6.x `@Where(clause = "deleted = false")` filter on User entity applies AFTER collection loading, causing empty collections even with valid data
+- **Impact:** Many-to-Many relationships with @Where filtered entities fail to load
+- **Solution Implemented:** 
+  - Created `findByIdNative()` to load Task with native SQL
+  - Created `findAssigneeIdsByTaskId()` to load assignee IDs separately
+  - Manually populate `task.assignees` collection in `TaskService.getTaskById()`
+  - This workaround bypasses Hibernate's @Where filter issues
+
+**Files Modified:**
+- `TaskRepository.java` - Added 2 new native query methods
+- `TaskService.java` - Modified `getTaskById()` with 3-step workaround
+- `application.yml` - Enhanced SQL logging for debugging
+
+**Alternative Approaches Attempted (Failed):**
+- ❌ `LEFT JOIN FETCH` in HQL - Still affected by @Where filter
+- ❌ `@EntityGraph(attributePaths = {"assignees"})` - Same issue
+- ❌ `Hibernate.initialize()` - Collection initialized but empty
+- ❌ Removing @Where temporarily - Not viable due to soft delete requirements
+
+**Lesson Learned:** Hibernate @Where filter + Many-to-Many lazy loading = incompatible in Hibernate 6.x. Use native queries or @FilterDef for complex scenarios.
+
+---
+
+### Other Known Issues
+1. **User soft delete with @Where filter** - May cause issues with lazy-loaded collections
+   - Impact: Collections referencing soft-deleted users might load empty
+   - Workaround: Use native queries or @FilterDef for fine-grained control
+   - Consider: Migrating from @Where to @Filter + @FilterDef for better control
+
+2. **Cannot delete users with assigned tasks** - Foreign key constraint blocks user deletion
+   - Impact: Users cannot be deactivated/removed if they have active task assignments
+   - Solution: Implement proper cascade rules or bulk unassign before deletion
 
 ### Planned Improvements
 - [ ] Implement task filtering API (GET /api/tasks?assigneeId=1&projectId=2)
@@ -1145,6 +1180,7 @@ For questions, issues, or suggestions:
 
 ---
 
-**Last Updated:** December 14, 2025  
-**Status:** MVP Phase - Core Task Management Operational  
+**Last Updated:** December 21, 2025  
+**Version:** v0.6.0 - Many-to-Many Assignees with @Where Filter Workaround  
+**Status:** MVP Phase - Core Task Management Operational + Bug Fixes  
 **Next Milestone:** Task Filtering & User Management APIs

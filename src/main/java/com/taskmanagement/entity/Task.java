@@ -17,6 +17,8 @@ import org.hibernate.annotations.OnDeleteAction;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 /**
  * Task entity – Thực thể cốt lõi trong hệ thống quản lý công việc (Task Management System)
@@ -198,26 +200,42 @@ public class Task {
  *
  * Lý do: Không tồn tại task mà không có ai phụ trách
  */
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "assignee_id", nullable = true)
-    @OnDelete(action = OnDeleteAction.SET_NULL)
-    private User assignee;
+    // @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    // @JoinColumn(name = "assignee_id", nullable = true)
+    // @OnDelete(action = OnDeleteAction.SET_NULL)
+    // private User assignee;
+
+/**
+ * Multi assignees per task - Nhiều người được giao cho một task
+ * 
+ * Business Rules:
+ * - Minimum 1 assignee (validated in service layer)
+ * - Maximum 10 assignees (avoid diffusion of responsibility)
+ * - Use Set to prevent duplicates
+ */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "task_assignees",
+        joinColumns = @JoinColumn(name = "task_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id"),
+        indexes = {
+            @Index(name = "idx_task_assignee_user", columnList = "user_id"),
+            @Index(name = "idx_task_assignee_task", columnList = "task_id"),
+        }
+    )
+    @Builder.Default
+    private Set<User> assignees = new HashSet<>();
+
 
 /**
  * Many-to-One với Project
- *
- * Quan hệ: Nhiều task → Một project
- *
- * @NotNull: Task phải thuộc về một project
- *
  * Fetch = LAZY: Không tự động load project
  * Cascade = NONE: Xóa task không ảnh hưởng project
  *
  * Lý do: Task cần được tổ chức theo project
  */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "project_id", nullable = false)
-    @NotNull(message = "Task project is required")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = true)
     private Project project;
 
 /**
@@ -343,20 +361,65 @@ public class Task {
 
 // ==================== BUSINESS LOGIC METHODS ====================
 /**
- * assignTo – Giao task cho user
- *
- * Quy tắc nghiệp vụ:
+ * addAssignee - Thêm user vào danh sách assignees
+ * 
+ * Business Rules:
  * - User không được null
- * - Có thể đổi người giao (reassign)
- * - Không thay đổi trạng thái task
+ * - Set tự động prevent duplicates
+ * - Maximum 10 assignees (validate ở service layer)
  */
-    public void assignTo(User user) {
+    public void addAssignee(User user) {
         if (user == null) {
             throw new IllegalArgumentException("User cannot be null");
         }
-        this.assignee = user;
+        if (this.assignees == null) {
+            this.assignees = new HashSet<>();
+        }
+        this.assignees.add(user);
     }
 
+/**
+ * removeAssignee - Xóa user khỏi danh sách assignees
+ * 
+ * Quy tắc nghiệp vụ:
+ * - Không throw exception nếu user không tồn tại trong set
+ * - Có thể remove đến khi task UNASSIGNED
+ * 
+ * Sử dụng:
+ * task.removeAssignee(user1);  // Xóa user1 khỏi task
+ */
+    public void removeAssignee(User user) {
+        if (this.assignees != null) {
+            this.assignees.remove(user);
+        }
+    }
+
+/**
+ * clearAssignees - Xóa tất cả assignees (task UNASSIGNED)
+ * 
+ * Sử dụng khi cần reset task về trạng thái không có người phụ trách
+ */
+    public void clearAssignees() {
+        if(this.assignees != null) {
+            this.assignees.clear();
+        }
+    }
+
+/**
+ * replaceAssignees - Thay thế toàn bộ danh sách assignees
+ * 
+ * @param newAssignees Set mới của assignees
+ */
+    public void replaceAssignees(Set<User> newAssignees) {
+        if (this.assignees == null) {
+            this.assignees = new HashSet<>();
+        } else {
+            this.assignees.clear();
+        }
+        if (newAssignees != null) {
+            this.assignees.addAll(newAssignees);
+        }
+    }
 /**
  * start – Bắt đầu thực hiện task
  *
@@ -433,7 +496,39 @@ public class Task {
  * isAssignedTo – Kiểm tra task có được giao cho user cụ thể không
  */
     public boolean isAssignedTo(User user) {
-        return user != null && this.assignee != null &&this.assignee.getId().equals(user.getId());
+        if (user == null || this.assignees == null || this.assignees.isEmpty()) {
+            return false;
+        } 
+        return this.assignees.stream()
+            .anyMatch(assignee -> assignee.getId().equals(user.getId()));
+
+    }
+
+/**
+ * isUnassigned - Kiểm tra task có assignee nào không
+ * 
+ * @return true nếu task không có assignee nào (UNASSIGNED)
+ */
+    public boolean isUnassigned() {
+        return this.assignees == null || this.assignees.isEmpty();
+    } 
+
+/**
+ * getAssigneeCount - Đếm số lượng assignees
+ * 
+ * @return Số assignees hiện tại
+ */
+    public int getAssigneeCount() {
+        return (this.assignees != null) ? this.assignees.size() : 0;
+    }
+
+/**
+ * hasMultipleAssignees – Kiểm tra task có nhiều hơn 1 assignee không
+ * @param project
+ * @return
+ */
+    public boolean hasMultipleAssignees() {
+        return this.assignees != null && this.assignees.size() > 1;
     }
 
 /**
@@ -454,14 +549,6 @@ public class Task {
 
 /**
  * softDelete – Đánh dấu task đã bị xóa (soft delete)
- * 
- * Quy tắc nghiệp vụ:
- * - Không thực sự xóa khỏi database
- * - Set deleted = true
- * - Ghi lại thời điểm xóa
- * - Task sẽ ẩn khỏi UI chính
- * - Có thể restore() sau này
- * 
  * Lưu ý:
  * - Comments và attachments KHÔNG bị xóa (vẫn còn trong DB)
  * - Quan hệ với User và Project vẫn còn

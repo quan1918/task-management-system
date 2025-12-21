@@ -13,10 +13,13 @@ The **Service layer** implements the core business logic of the application. Ser
 ##  Current Implementation Status
 
 ### ✅ Implemented Services
-- **TaskService.java** - Complete CRUD operations for tasks
-  - `createTask()` - Create new task with validation
-  - `getTaskById()` - Retrieve task with lazy loading
-  - `updateTask()` - Partial update of task fields
+- **TaskService.java** - Complete CRUD operations for tasks with Many-to-Many assignees
+  - `createTask()` - Create task with multiple assignees (N:N relationship)
+  - `getTaskById()` - Retrieve task with 3-step workaround for @Where filter issues
+    - Uses native SQL to load Task
+    - Queries assignee IDs separately to bypass Hibernate filter
+    - Manually populates assignees collection
+  - `updateTask()` - Update task fields and assignees
   - `deleteTask()` - Hard delete with cascade to comments/attachments
 
 - **UserService.java** - User management with soft delete
@@ -25,12 +28,18 @@ The **Service layer** implements the core business logic of the application. Ser
   - `deleteUser()` - Soft delete with bulk unassign tasks
   - `restoreUser()` - Restore deleted user
 
+- **ProjectService.java** - Project management operations
+  - `createProject()` - Create new project
+  - `getProjectById()` - Retrieve project by ID
+  - `updateProject()` - Update project details
+  - `deleteProject()` - Delete project (hard delete)
+
 ### 🔲 Not Yet Implemented
-- ProjectService.java - Project management
 - CommentService.java - Comment operations
 - NotificationService.java - Event-driven notifications
 - Event publishing system
 - UserService CREATE/UPDATE operations (only GET/DELETE/RESTORE)
+- Migration from @Where to @FilterDef for better lazy loading support
 
 ---
 
@@ -72,8 +81,9 @@ The **Service layer** implements the core business logic of the application. Ser
 
 ```
 service/
-├── TaskService.java       ✅ Task CRUD operations (fully implemented)
+├── TaskService.java       ✅ Task CRUD with Many-to-Many assignees + @Where workaround
 ├── UserService.java       ✅ User management with soft delete (GET/DELETE/RESTORE)
+├── ProjectService.java    ✅ Project CRUD operations (fully implemented)
 └── README.md              📄 This file
 ```
 

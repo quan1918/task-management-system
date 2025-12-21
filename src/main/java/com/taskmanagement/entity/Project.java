@@ -6,7 +6,10 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Project entity đại diện cho một workspace hoặc một “container” chứa các task.
@@ -106,7 +109,7 @@ public class Project {
  * Trường hợp: Phân biệt dự án lên kế hoạch và thực thi
  */
     @Column
-    private LocalDateTime startDate;
+    private LocalDate startDate;
 
 /**
  * endDate - Ngày hoàn thành dự án
@@ -115,7 +118,7 @@ public class Project {
  * Trường hợp: Theo dõi timeline và hạn chót
  */
     @Column
-    private LocalDateTime endDate;
+    private LocalDate endDate;
 
 // ==================== RELATIONSHIPS ====================
 /**
@@ -167,6 +170,21 @@ public class Project {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    /**
+     * Relationship với Task
+     * 
+     * - OneToMany: Một project có nhiều tasks
+     * - mappedBy = "project": Bên Task có field "project" (owner của relationship)
+     * - fetch = LAZY: Chỉ load tasks khi cần (performance)
+     * - cascade = CascadeType.ALL: Khi delete project → cascade sang tasks
+     * - orphanRemoval = false: Giữ task khi remove khỏi collection
+     * 
+     * NOTE: Dùng @Builder.Default để tránh null khi build Project
+     */
+    @OneToMany(mappedBy = "project", fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<Task> tasks = new ArrayList<>();
+
 // ==================== BUSINESS LOGIC METHODS ====================
 /**
  * Kiểm tra dự án có đang active hay không
@@ -211,7 +229,7 @@ public class Project {
  * Lý do: Phân biệt dự án lên kế hoạch vs đang hoạt động
  */
     public boolean hasStarted() {
-        return startDate != null && LocalDateTime.now().isAfter(startDate);
+        return startDate != null && LocalDate.now().isAfter(startDate);
     }
 
 /**
@@ -223,7 +241,7 @@ public class Project {
  * Lý do: Cảnh báo dự án cần ưu tiên
  */
     public boolean isOverdue() {
-        return active && endDate != null && LocalDateTime.now().isAfter(endDate);
+        return active && endDate != null && LocalDate.now().isAfter(endDate);
     }
 
 /**
@@ -235,4 +253,32 @@ public class Project {
     public boolean isOwnedBy(User user) {
         return user != null && this.owner.getId().equals(user.getId());
     }
+
+    /**
+     * Helper: Thêm task vào project
+     */
+    public void addTask(Task task) {
+        tasks.add(task);
+        task.setProject(this);
+    }
+    
+    /**
+     * Helper: Xóa task khỏi project
+     */
+    public void removeTask(Task task) {
+        tasks.remove(task);
+        task.setProject(null);
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }
+

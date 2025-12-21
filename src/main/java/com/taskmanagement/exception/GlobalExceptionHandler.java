@@ -161,6 +161,44 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             }
+
+// ==================== DUPLICATE RESOURCE (409 Conflict) ====================
+
+/**
+ * Xử lý DuplicateResourceException
+ * 
+ * Được kích hoạt khi:
+ * - Username đã tồn tại khi tạo user
+ * - Email đã tồn tại khi tạo/update user
+ * 
+ * Trả về: 409 Conflict
+ * 
+ * Example Response:
+ * {
+ *   "timestamp": "2025-12-20T10:30:00",
+ *   "status": 409,
+ *   "error": "Duplicate Resource",
+ *   "message": "Username already exists: admin",
+ *   "path": "/api/users"
+ * }
+ */
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateResource(
+            DuplicateResourceException ex,
+            WebRequest request) {
+
+        log.warn("Duplicate resource: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.CONFLICT.value())
+            .error("Duplicate Resource")
+            .message(ex.getMessage())
+            .path(request.getDescription(false).replace("uri=", ""))
+            .build();
+        
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
     
 // ==================== GENERIC ERRORS (500 Internal Server Error) ====================
 

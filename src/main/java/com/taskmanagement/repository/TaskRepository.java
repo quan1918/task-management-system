@@ -7,6 +7,7 @@ import com.taskmanagement.entity.TaskStatus;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -57,53 +58,94 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
     @Query("SELECT t FROM Task t WHERE t.id = :id")
     Optional<Task> findByIdIncludingDeleted(Long id);
 
-     /**
-     * Tìm tất cả tasks được gán cho một user cụ thể
-     * 
-     * @param assigneeId User ID
-     * @return List các tasks của user đó
+    /**
+     * Find task by ID with assignees and project eagerly loaded
+     * TEST: Using native SQL to bypass Hibernate @Where filtering
      */
-    List<Task> findByAssigneeId(Long assigneeId);
+    @Query(value = "SELECT t.* FROM tasks t WHERE t.id = :id", nativeQuery = true)
+    Optional<Task> findByIdNative(@Param("id") Long id);
+    
+    /**
+     * Find task by ID with assignees - HQL version
+     */
+    @Query("SELECT t FROM Task t LEFT JOIN FETCH t.assignees WHERE t.id = :id")
+    Optional<Task> findByIdWithRelations(@Param("id") Long id);
+    
+    /**
+     * Get assignees for a task - bypasses @Where filter issues
+     * Returns User IDs, then load entities separately
+     */
+    @Query(value = "SELECT u.id FROM users u " +
+           "JOIN task_assignees ta ON u.id = ta.user_id " +
+           "WHERE ta.task_id = :taskId AND u.deleted = false", 
+           nativeQuery = true)
+    List<Long> findAssigneeIdsByTaskId(@Param("taskId") Long taskId);
+    /**
+     * Find tasks assigned to a specific user
+     * 
+     * Business Logic:
+     * - Returns tasks where user is ONE OF the assignees
+     * - Uses JOIN on task_assignees junction table
+     * - DISTINCT prevents duplicate rows (if task has multiple assignees)
+     * 
+     * Example:
+     * Task #10 has assignees: [user5, user7]
+     * findTasksAssignedToUser(5) → Returns Task #10
+     * findTasksAssignedToUser(7) → Returns Task #10
+     * 
+     * @param userId ID of the user
+     * @return List of tasks assigned to the user
+     */
+    @Query("SELECT DISTINCT t FROM Task t JOIN t.assignees a WHERE a.id = :userId")
+    List<Task> findTasksAssignedToUser(@Param("userId") Long userId);
+    
+    /**
+     * Alias method for backward compatibility
+     * Maps old API: GET /api/tasks?assigneeId=5
+     * 
+     * @deprecated Use findTasksAssignedToUser for clarity
+     */
+    @Query("SELECT DISTINCT t FROM Task t JOIN t.assignees a WHERE a.id = :assigneeId")
+    List<Task> findByAssigneeId(@Param("assigneeId") Long assigneeId);
 
     /**
      * Tìm tất cả tasks chưa được gán (assignee = NULL)
      * 
      * @return List các UNASSIGNED tasks
      */
+    @Query("SELECT t FROM Task t WHERE t.assignees IS EMPTY")
     List<Task> findByAssigneeIsNull();
 
     /**
      * Đếm số tasks đang assigned cho một user
      * 
-     * @param assigneeId User ID
+     * @param userId User ID
      * @return Số lượng tasks
      */
-    long countByAssigneeId(Long assigneeId);   
+    @Query("SELECT COUNT(DISTINCT t) FROM Task t JOIN t.assignees a WHERE a.id = :userId")
+    long countByAssigneeId(@Param("userId") Long userId);   
 
     /**
-     * Bulk update: Unassign tất cả tasks của một user
+     * Bulk update: Remove user from all tasks
      * 
      * Business Logic:
-     * - Set assignee = NULL
-     * - Set status = UNASSIGNED
+     * - Remove user from task_assignees junction table
+     * - Tasks become unassigned if this was the only assignee
      * 
      * ✅ KHÔNG load entities vào memory
      * ✅ KHÔNG trigger validation
-     * ✅ Execute trực tiếp 1 SQL UPDATE
+     * ✅ Execute trực tiếp 1 SQL DELETE
      * 
      * Performance:
-     * - Thay vì N queries (loop save từng task)
+     * - Thay vì N queries (loop remove từng task)
      * - Chỉ cần 1 query duy nhất
      * - Tránh N+1 problem
      * 
-     * @param userId User ID cần unassign tasks
-     * @return Số tasks đã được update
+     * @param userId User ID cần remove từ tasks
+     * @return Số records đã được deleted từ junction table
      */
     @Modifying
-    @Query("UPDATE Task t " +
-           "SET t.assignee = NULL, " +
-           "    t.status = com.taskmanagement.entity.TaskStatus.UNASSIGNED " +
-           "WHERE t.assignee.id = :userId")
+    @Query(value = "DELETE FROM task_assignees WHERE user_id = :userId", nativeQuery = true)
     int unassignTasksByUserId(@Param("userId") Long userId);
 
     /**
@@ -112,6 +154,42 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
      * @return List các UNASSIGNED tasks
      */
     List<Task> findByStatus(TaskStatus status);
+
+        /**
+     * Remove user from ALL tasks (when user deleted)
+     * Native query để delete records trong join table
+     */
+    @Modifying
+    @Query(value = "DELETE FROM task_assignees WHERE user_id = :userId", nativeQuery = true)
+    int removeUserFromAllTasks(@Param("userId") Long userId);
+    
+    /**
+     * Find UNASSIGNED tasks (no assignees)
+     */
+    @Query("SELECT t FROM Task t WHERE t.assignees IS EMPTY")
+    List<Task> findUnassignedTasks();
+    
+    /**
+     * Find tasks by status and assignee
+     */
+    @Query("SELECT DISTINCT t FROM Task t JOIN t.assignees a " +
+           "WHERE t.status = :status AND a.id = :userId")
+    List<Task> findByStatusAndAssigneeId(
+        @Param("status") TaskStatus status,
+        @Param("userId") Long userId
+    );
+    
+    /**
+     * Find tasks assigned to ALL specified users (collaboration)
+     */
+    @Query("SELECT t FROM Task t JOIN t.assignees a WHERE a.id IN :userIds " +
+           "GROUP BY t HAVING COUNT(DISTINCT a.id) = :userCount")
+    List<Task> findTasksAssignedToAllUsers(
+        @Param("userIds") List<Long> userIds,
+        @Param("userCount") long userCount
+    );
+    
+    List<Task> findAllByProjectId(Long id);
 
     // ==================== CÁC PHƯƠNG THỨC KẾ THỪA ====================
     //

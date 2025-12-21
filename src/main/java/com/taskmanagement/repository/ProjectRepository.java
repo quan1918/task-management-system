@@ -4,6 +4,7 @@ import com.taskmanagement.entity.Project;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 /**
  * ProjectRepository - Tầng truy cập dữ liệu cho thực thể Project
@@ -52,6 +53,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 * @return Optional<Project> (rỗng nếu không tìm thấy hoặc project không active)
 */
     Optional<Project> findByIdAndActiveTrue(Long id);
+
+    List<Project> findAllByActiveTrue();
     
 // Các phương thức khác có thể được thêm trong tương lai:
 // List<Project> findByOwnerId(Long ownerId);

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * CreateTaskRequest - DTO dùng để tạo một task mới
@@ -116,9 +117,10 @@ public class CreateTaskRequest {
  * Lưu ý: Sử dụng ID thay vì entity User
  * Service layer sẽ kiểm tra user có tồn tại hay không
  */
-    @NotNull(message = "Assignee ID is required")
-    @Positive(message = "Assignee ID must be positive")
-    private Long assigneeId;
+    @NotNull(message = "Assignees ID is required")
+    @NotEmpty(message = "Assignees ID cannot be empty")
+    @Size(min = 1, max = 10, message = "Task must have 1 - 10 assignees")
+    private List<@Positive(message = "Assignee ID must be positive") Long> assigneeIds;
 
 /**
  * Project ID — task thuộc về project nào

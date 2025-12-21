@@ -7,6 +7,7 @@ import com.taskmanagement.entity.Project;
 import com.taskmanagement.entity.Task;
 import com.taskmanagement.entity.TaskStatus;
 import com.taskmanagement.entity.User;
+import com.taskmanagement.exception.BusinessRuleException;
 import com.taskmanagement.exception.ProjectNotFoundException;
 import com.taskmanagement.exception.TaskNotFoundException;
 import com.taskmanagement.exception.UserNotFoundException;
@@ -18,6 +19,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -83,16 +88,44 @@ public class TaskService {
      */
     public TaskResponse createTask(CreateTaskRequest request) {
         log.info("Creating new task: title={}, assigneeId={}, projectId={}",
-            request.getTitle(), request.getAssigneeId(), request.getProjectId());
+            request.getTitle(), request.getAssigneeIds(), request.getProjectId());
         
     // ========== STEP 1: Validate Assignee Exists ==========
     
-        User assignee = userRepository.findById(request.getAssigneeId())
-            .orElseThrow(() -> {
-                log.error("Assignee not found: id={}", request.getAssigneeId());
-                return new UserNotFoundException(request.getAssigneeId());
-            });
-    
+        // Lấy assignee từ database
+        Set<User> assignees = new HashSet<>(
+            userRepository.findAllById(request.getAssigneeIds())
+        );
+
+        // Kiểm tra tất cả assignees có được tìm thấy không
+        if (assignees.size() != request.getAssigneeIds().size()) {
+            Set<Long> foundIds = assignees.stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+            List<Long> missingIds = request.getAssigneeIds().stream()
+                .filter(id -> !foundIds.contains(id))
+                .collect(Collectors.toList());
+
+            log.error("Some assignees not found: missingIds={}", missingIds);
+            throw new UserNotFoundException("Assignees not found with IDs: " + missingIds);
+        }
+
+        // Kiểm tra tất cả assignees đều active
+        List<User> inactiveUsers = assignees.stream()
+            .filter(user -> !user.getActive())
+            .collect(Collectors.toList());
+
+        if (!inactiveUsers.isEmpty()) {
+            String inactiveUsernames = inactiveUsers.stream()
+                .map(User::getUsername)
+                .collect(Collectors.joining(", "));
+            log.error("Cannot assign task to inactive users: " + inactiveUsernames);
+            throw new BusinessRuleException("Cannot assign task to inactive users: " + inactiveUsernames);
+        }
+
+        log.debug("All {} assignees validated successfully", assignees.size());
+        
     // ========== STEP 2: Validate Project Exists & Active ==========
 
         Project project = projectRepository.findByIdAndActiveTrue(request.getProjectId())
@@ -101,16 +134,9 @@ public class TaskService {
                 return new ProjectNotFoundException(request.getProjectId());
             });
         
-        log.debug("Project found: projectId={}, active={}", project.getId(), project.getName(), project.getActive());
-    
-    // ========== STEP 3: Business Validations (Optional) ==========
-
-    // Tương lai: thêm các business rule khác tại đây
-    // Ví dụ: Kiểm tra workload của assignee quá cao
-    // Ví dụ: Kiểm tra project đã đạt giới hạn số lượng task
-    // Ví dụ: Validate due date nằm trong phạm vi timeline của project}
-    
-    // ========== STEP 4: Create Task Entity ==========
+        log.debug("Project found: projectId={}, active={}", project.getId(), project.getActive());
+       
+    // ========== STEP 3: Create Task Entity ==========
 
         Task task = Task.builder()
             .title(request.getTitle())
@@ -119,25 +145,25 @@ public class TaskService {
             .dueDate(request.getDueDate())
             .estimatedHours(request.getEstimatedHours())
             .notes(request.getNotes())
-            .assignee(assignee)
+            .assignees(assignees)
             .project(project)
             .status(TaskStatus.PENDING) // Mặc định trạng thái là PENDING
             .build();
 
         log.debug("Task entity created: {}", task);
     
-    // ========== STEP 5: Save to Database ==========
+    // ========== STEP 4: Save to Database ==========
 
         Task savedTask = taskRepository.save(task);
 
         log.info("Task saved succesfully: taskId={}, title={}", savedTask.getId(), savedTask.getTitle());
 
-    // ========== STEP 6: Convert to Response DTO ==========
+    // ========== STEP 5: Convert to Response DTO ==========
         TaskResponse response = TaskResponse.from(savedTask);
     
         log.debug("TaskResponse created: taskId={}, assignee={}, project={}",
             response.getId(),
-            response.getAssignee().getUsername(),
+            response.getAssignees() != null ? response.getAssignees().size() : 0,
             response.getProject().getName());
 
     // ========== STEP 7: Return Response ==========
@@ -155,11 +181,6 @@ public class TaskService {
      * 2. Nếu không tìm thấy → throw TaskNotFoundException
      * 3. Convert Task entity → TaskResponse DTO
      * 4. Return response
-     * 
-     * Business Rules:
-     * - Task phải tồn tại trong database
-     * - Trả về đầy đủ thông tin task kèm assignee và project
-     * - Lazy loading được xử lý trong transaction
      * 
      * @param id Task ID
      * @return TaskResponse DTO với đầy đủ thông tin
@@ -179,22 +200,23 @@ public class TaskService {
      */
     @Transactional(readOnly = true)
     public TaskResponse getTaskById(Long id) {
-        log.info("Fetching task by ID: {}", id);
+        log.info("Fetching task by ID: {} with separate assignees query", id);
 
     // ========== STEP 1: Find Task in Database ==========
-        Task task = taskRepository.findById(id)
+        Task task = taskRepository.findByIdNative(id)
             .orElseThrow(() -> {
                 log.error("Task not found: id={}", id);
                 return new TaskNotFoundException(id);
             });
         
-        log.debug("Task found: task_id={}, title={}, status={}", task.getId(), task.getTitle(), task.getStatus());
-
-    // ========== STEP 2: Trigger Lazy Loading ==========
-        String assigneeName = task.getAssignee().getFullName();
-        String projectName = task.getProject().getName();
-
-        log.debug("Loaded relationships - Assignee: {}, Project: {}", assigneeName, projectName);
+        // WORKAROUND: Load assignees separately to bypass @Where filter issue
+        List<Long> assigneeIds = taskRepository.findAssigneeIdsByTaskId(id);
+        List<User> assignees = userRepository.findAllById(assigneeIds);
+        task.getAssignees().clear();
+        task.getAssignees().addAll(assignees);
+        
+        log.info("Task found: id={}, title={}, assigneesSize={}", 
+            task.getId(), task.getTitle(), task.getAssignees().size());
 
     // ========== STEP 3: Convert Entity → DTO ==========
         TaskResponse response = TaskResponse.from(task);
@@ -256,23 +278,54 @@ public class TaskService {
      
     // ========== STEP 2: Validate & Update Assignee ==========
         
-        if (request.getAssigneeId() !=null) {
-            // Chỉ query database nếu assignee thực sự thay đổi
-            if(!task.getAssignee().getId().equals(request.getAssigneeId())) {
-                log.debug("Changing assignee from {} to {}", task.getAssignee().getId(), request.getAssigneeId());
+        if (request.getAssigneeIds() !=null) {
+            log.debug("Updating assignees: old count={}, new IDs={}",
+                task.getAssignees().size(), request.getAssigneeIds());
             
-            User newAssignee = userRepository.findById(request.getAssigneeId())
-                .orElseThrow(() -> {
-                    log.error("New assignee not found: id={}",request.getAssigneeId());
-                    return new UserNotFoundException(request.getAssigneeId());
-                });
+            // Clear old assignees
+            task.getAssignees().clear();
 
-            task.setAssignee(newAssignee);
-            log.info("Task assignee updated: taskId= {}, oldAssigneeId= {}, neAssignee={}", id, task.getAssignee().getUsername(), newAssignee.getUsername());
-            } else {
-                log.debug("Assignee unchanged: id={}, skipping update");
+            // Add new assignees (if not empty list)
+            if (!request.getAssigneeIds().isEmpty()) {
+                Set<User> newAssignees = new HashSet<>(
+                    userRepository.findAllById(request.getAssigneeIds())
+                );
+
+                // Kiểm tra tất cả assignees có được tìm thấy không
+                if (newAssignees.size() != request.getAssigneeIds().size()) {
+                    Set<Long> foundIds = newAssignees.stream()
+                        .map(User::getId)
+                        .collect(Collectors.toSet());
+
+                    List<Long> missingIds = request.getAssigneeIds().stream()
+                        .filter(assigneeId -> !foundIds.contains(assigneeId))
+                        .collect(Collectors.toList());
+
+                    log.error("Some assignees not found: missingIds={}", missingIds);
+                    throw new UserNotFoundException("Assignees not found with IDs: " + missingIds);
+                }
+
+                // Kiểm tra tất cả assignees đều active
+                List<User> inactiveUsers = newAssignees.stream()
+                    .filter(user -> !user.getActive())
+                    .collect(Collectors.toList());
+
+                if (!inactiveUsers.isEmpty()) {
+                    String inactiveUsernames = inactiveUsers.stream()
+                        .map(User::getUsername)
+                        .collect(Collectors.joining(", "));
+                    log.error("Cannot assign to inactive users: {}", inactiveUsernames);
+                    throw new BusinessRuleException(
+                        "Cannot assign task to inactive users: " + inactiveUsernames
+                    );
+                }
+
+                task.getAssignees().addAll(newAssignees);
+                log.debug("Assignees updated: new count={}", task.getAssignees().size());
+                } else {
+                    log.warn("Task {} set to UNASSIGNED (empty assignee list)", id);
+                }
             }
-        }
 
     // ========== STEP 3: Validate & Update Project (if provided) ==========
         
@@ -359,7 +412,9 @@ public class TaskService {
     // ========== STEP 7: Convert to Response DTO ==========
     
         // Trigger lazy loading trước khi transaction close
-        updatedTask.getAssignee().getUsername();
+        if (updatedTask.getAssignees() != null && !updatedTask.getAssignees().isEmpty()) {
+            updatedTask.getAssignees().forEach(user -> user.getUsername());
+        }
         updatedTask.getProject().getName();
 
         TaskResponse response = TaskResponse.from(updatedTask);

@@ -18,13 +18,14 @@
 
 ```
 repository/
-├── TaskRepository.java          # ✅ Task data access (CRUD)
-├── UserRepository.java          # ✅ User data access (validation only)
-├── ProjectRepository.java       # ✅ Project data access (validation only)
+├── TaskRepository.java          # ✅ Task data access with native SQL workarounds
+├── UserRepository.java          # ✅ User data access with @Where filter
+├── ProjectRepository.java       # ✅ Project data access (CRUD operations)
+├── CommentRepository.java       # ✅ Comment data access
 └── README.md                    # This file
 ```
 
-**Note:** Only TaskRepository has active CRUD operations. User and Project repositories are currently used only for validation (checking existence).
+**Note:** TaskRepository includes native query methods to bypass Hibernate @Where filter issues with Many-to-Many lazy loading.
 
 ---
 
@@ -70,6 +71,35 @@ repository/
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
     
+    // ========== WORKAROUND METHODS FOR @Where FILTER ISSUES ==========
+    
+    /**
+     * Find task by ID using native SQL
+     * Bypasses Hibernate entity loading to avoid @Where filter issues
+     */
+    @Query(value = "SELECT t.* FROM tasks t WHERE t.id = :id", nativeQuery = true)
+    Optional<Task> findByIdNative(@Param("id") Long id);
+    
+    /**
+     * Get assignee IDs for a task (bypasses @Where filter)
+     * Returns Long IDs instead of User entities
+     * Workaround for Hibernate 6.x @Where filter + lazy loading issue
+     */
+    @Query(value = "SELECT u.id FROM users u " +
+           "JOIN task_assignees ta ON u.id = ta.user_id " +
+           "WHERE ta.task_id = :taskId AND u.deleted = false", 
+           nativeQuery = true)
+    List<Long> findAssigneeIdsByTaskId(@Param("taskId") Long taskId);
+    
+    /**
+     * Find task by ID with assignees eagerly loaded (HQL version)
+     * Note: Has @Where filter issues in Hibernate 6.x - use findByIdNative() instead
+     */
+    @Query("SELECT t FROM Task t LEFT JOIN FETCH t.assignees WHERE t.id = :id")
+    Optional<Task> findByIdWithRelations(@Param("id") Long id);
+    
+    // ========== STANDARD QUERY METHODS ==========
+    
     /**
      * Find task by ID including soft-deleted tasks
      * (for admin/restore operations)
@@ -78,19 +108,22 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Optional<Task> findByIdIncludingDeleted(Long id);
     
     /**
-     * Find tasks by assignee ID
+     * Find tasks assigned to a specific user (Many-to-Many relationship)
      */
-    List<Task> findByAssigneeId(Long assigneeId);
+    @Query("SELECT DISTINCT t FROM Task t JOIN t.assignees a WHERE a.id = :userId")
+    List<Task> findTasksAssignedToUser(@Param("userId") Long userId);
     
     /**
-     * Find tasks without assignee
+     * Find tasks without any assignees
      */
-    List<Task> findByAssigneeIsNull();
+    @Query("SELECT t FROM Task t WHERE t.assignees IS EMPTY")
+    List<Task> findUnassignedTasks();
     
     /**
-     * Count tasks by assignee
+     * Count tasks assigned to a user
      */
-    long countByAssigneeId(Long assigneeId);
+    @Query("SELECT COUNT(DISTINCT t) FROM Task t JOIN t.assignees a WHERE a.id = :userId")
+    long countByAssigneeId(@Param("userId") Long userId);
     
     /**
      * Find tasks by status
@@ -98,16 +131,12 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByStatus(TaskStatus status);
     
     /**
-     * Bulk unassign tasks - PERFORMANCE CRITICAL
-     * Sets assignee = NULL and status = UNASSIGNED
-     * Used when deleting user
+     * Bulk remove user from all tasks (junction table)
+     * Used when deleting user - removes from task_assignees table
      */
     @Modifying
-    @Query("UPDATE Task t " +
-           "SET t.assignee = NULL, " +
-           "    t.status = com.taskmanagement.entity.TaskStatus.UNASSIGNED " +
-           "WHERE t.assignee.id = :userId")
-    int unassignTasksByUserId(@Param("userId") Long userId);
+    @Query(value = "DELETE FROM task_assignees WHERE user_id = :userId", nativeQuery = true)
+    int removeUserFromAllTasks(@Param("userId") Long userId);
 }
 ```
 

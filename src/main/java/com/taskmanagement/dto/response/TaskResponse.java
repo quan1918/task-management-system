@@ -1,10 +1,14 @@
 package com.taskmanagement.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.taskmanagement.entity.TaskPriority;
 import com.taskmanagement.entity.TaskStatus;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 /**
  * TaskResponse - DTO dùng để trả dữ liệu task về cho client
@@ -46,12 +50,13 @@ public class TaskResponse {
     private String notes;
 
 /**
- * Assignee information (nested DTO)
- * Chỉ chứa thông tin cơ bản của user được assign
- * Không trả về toàn bộ User entity vì có dữ liệu nhạy cảm
- */
-    private UserSummary assignee;
+* List of users assigned to this task
+* Empty list = UNASSIGNED task
+*/
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    private List<UserSummary> assignees;
 
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private ProjectSummary project;
     private Integer commentCount;
 
@@ -115,6 +120,27 @@ public class TaskResponse {
         if (task == null) {
             return null;
         }
+        
+        List<UserSummary> assigneeSummaries = new ArrayList<>();
+        if (task.getAssignees() != null && !task.getAssignees().isEmpty()) {
+            assigneeSummaries = task.getAssignees().stream().map(user -> UserSummary.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .build())
+            .collect(Collectors.toList());
+        }
+        
+        ProjectSummary projectSummary = null;
+        if (task.getProject() != null) {
+            projectSummary = ProjectSummary.builder()
+                .id(task.getProject().getId())
+                .name(task.getProject().getName())
+                .active(task.getProject().getActive())
+                .build();
+        }
+
         return TaskResponse.builder()
             .id(task.getId())
             .title(task.getTitle())
@@ -126,17 +152,8 @@ public class TaskResponse {
             .completedAt(task.getCompletedAt())
             .estimatedHours(task.getEstimatedHours())
             .notes(task.getNotes())
-            .assignee(UserSummary.builder()
-                .id(task.getAssignee().getId())
-                .username(task.getAssignee().getUsername())
-                .fullName(task.getAssignee().getFullName())
-                .email(task.getAssignee().getEmail())
-                .build())
-            .project(ProjectSummary.builder()
-                .id(task.getProject().getId())
-                .name(task.getProject().getName())
-                .active(task.getProject().getActive())
-                .build())
+            .assignees(assigneeSummaries)
+            .project(projectSummary)
             .commentCount(task.getComments() != null ? task.getComments().size() : 0)
             .attachmentCount(task.getAttachments() != null ? task.getAttachments().size() : 0)
             .overdue(task.isOverdue())

@@ -35,6 +35,10 @@ import java.util.List;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long>{
 
+    
+    Optional<User> findByUsername(String username);
+
+    Optional<User> findByEmail(String email);
     /**
      * Tìm user theo ID (bao gồm cả deleted users)
      * Bypass @Where clause
@@ -82,8 +86,9 @@ public interface UserRepository extends JpaRepository<User, Long>{
 // Không cần viết thêm phương thức nào tại đây.
 //
 // Các phương thức bổ sung có thể thêm sau khi phát triển các tính năng khác:
-// Optional<User> findByEmail(String email);
-// Optional<User> findByUsername(String username);
 // boolean existsByEmail(String email);
 // List<User> findByActiveTrue();
+
+    
+
 }

@@ -11,6 +11,8 @@ import org.hibernate.annotations.Where;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 /**
  * User entity đại diện cho một người dùng trong ứng dụng.
  * 
@@ -225,9 +227,9 @@ public class User {
 
     // ========== RELATIONSHIPS ==========
 
-    @OneToMany(mappedBy = "assignee")
+    @ManyToMany(mappedBy = "assignees", fetch = FetchType.LAZY)
     @Builder.Default
-    private List<Task> assignedTasks = new ArrayList<>();
+    private Set<Task> assignedTasks = new HashSet<>();
 
     @OneToMany(mappedBy = "owner")
     @Builder.Default

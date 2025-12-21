@@ -13,21 +13,26 @@ The **Entity layer** defines the core domain model of the application. Entities 
 ##  Current Implementation Status
 
 ### ✅ Fully Implemented Entities
-- **Task.java** - Core task entity with full relationships
-- **User.java** - User entity (referenced by Task)
-- **Project.java** - Project entity (referenced by Task)
-- **Comment.java** - Comment entity (One-to-Many with Task)
-- **Attachment.java** - Attachment entity (One-to-Many with Task)
-- **TaskStatus.java** - Task status enumeration
-- **TaskPriority.java** - Task priority enumeration
+- **Task.java** - Core task entity with Many-to-Many assignees
+  - @ManyToMany relationship with User via task_assignees junction table
+  - FetchType.LAZY for assignees (requires workaround due to @Where filter issues)
+- **User.java** - User entity with soft delete
+  - @Where(clause = "deleted = false") - auto-filters deleted users
+  - ⚠️ **Known Issue:** Causes empty collections in Many-to-Many lazy loading (Hibernate 6.x)
+  - Consider migration to @FilterDef for better control
+- **Project.java** - Project entity (required for tasks)
+- **Comment.java** - Comment entity (One-to-Many with Task, cascade delete)
+- **Attachment.java** - Attachment entity (One-to-Many with Task, cascade delete)
+- **TaskStatus.java** - Task status enumeration (PENDING, IN_PROGRESS, COMPLETED, etc.)
+- **TaskPriority.java** - Task priority enumeration (LOW, MEDIUM, HIGH, CRITICAL)
 
 ### 🔧 Implementation Notes
-- Task entity **NOW ALLOWS nullable assignee** (optional = true) - supports UNASSIGNED status
+- Task entity supports **multiple assignees** (Many-to-Many via junction table)
 - Project remains **REQUIRED** (NOT NULL constraint)
-- **User soft delete fully implemented** with @SQLDelete and @Where annotations
-- Task assignee can be NULL (when user deleted or unassigned)
+- **User soft delete implemented** with @SQLDelete and @Where annotations
+- **@Where filter issue:** Native SQL workaround needed for loading assignees
 - Comment and Attachment entities defined but **no API endpoints** yet
-- Project entity defined but **no management API** yet
+- Project entity has full CRUD implementation
 
 ---
 

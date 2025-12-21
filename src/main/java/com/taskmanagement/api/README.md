@@ -13,12 +13,14 @@ The **API layer** is the presentation/interface adapter layer in our Clean Archi
 ##  Current Implementation Status
 
 ### ✅ Implemented Controllers
-- **TaskController.java** - Task CRUD operations (POST, GET, PUT, DELETE)
+- **TaskController.java** - Task CRUD with Many-to-Many assignees (POST, GET, PUT, DELETE)
+  - Supports multiple assignees per task (N:N relationship)
+  - Workaround implemented for Hibernate @Where filter issues
 - **UserController.java** - User management (GET all, GET by ID, DELETE with soft delete, POST restore)
+- **ProjectController.java** - Project CRUD operations (POST, GET, PUT, DELETE)
 
 ### 🔲 Not Yet Implemented
-- AuthController.java - Authentication & authorization  
-- ProjectController.java - Project management
+- AuthController.java - JWT authentication & authorization  
 - CommentController.java - Task comments
 - AttachmentController.java - File attachments
 - ReportController.java - Reports & analytics
@@ -66,10 +68,12 @@ Base URL: `/api/tasks`
 
 | Method | Endpoint | Description | Request Body | Response | Auth |
 |--------|----------|-------------|--------------|----------|------|
-| POST | `/api/tasks` | Create new task | CreateTaskRequest | 201 + TaskResponse | Basic Auth |
-| GET | `/api/tasks/{id}` | Get task by ID | - | 200 + TaskResponse | Basic Auth |
-| PUT | `/api/tasks/{id}` | Update task | UpdateTaskRequest | 200 + TaskResponse | Basic Auth |
+| POST | `/api/tasks` | Create task with multiple assignees | CreateTaskRequest | 201 + TaskResponse | Basic Auth |
+| GET | `/api/tasks/{id}` | Get task by ID (with assignees workaround) | - | 200 + TaskResponse | Basic Auth |
+| PUT | `/api/tasks/{id}` | Update task & assignees | UpdateTaskRequest | 200 + TaskResponse | Basic Auth |
 | DELETE | `/api/tasks/{id}` | Delete task | - | 204 No Content | Basic Auth |
+
+**Note:** GET endpoint uses native SQL workaround to bypass Hibernate @Where filter issues with Many-to-Many lazy loading.
 
 ---
 
