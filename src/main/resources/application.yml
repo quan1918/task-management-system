@@ -200,10 +200,20 @@ server:
 # ============================================================================
 
 # ---
-# spring:
-#   config:
-#     activate:
-#       on-profile: prod
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: jdbc:postgresql://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
 #   
 #   datasource:
 #     # Use environment variables for sensitive data
