@@ -213,7 +213,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
 #   
 #   datasource:
 #     # Use environment variables for sensitive data
