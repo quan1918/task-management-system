@@ -812,7 +812,13 @@ Create tests in `src/test/`:
    ```
 
 6. **Verify application is running:**
+   
+   **Local Development:**
    - Health Check: http://localhost:8080/actuator/health
+   - Expected response: `{"status":"UP"}`
+   
+   **Production:**
+   - Health Check: https://task-management-system-0c0p.onrender.com/actuator/health
    - Expected response: `{"status":"UP"}`
 
 ---
@@ -839,8 +845,17 @@ A complete Postman collection is available for testing all API endpoints.
    - Or manually import from: [Postman Collection Link](https://www.postman.com/api-team-5375/workspace/api-workspace/request/37783257-eb670533-dc90-408b-ad08-732c7d8390e1?action=share&creator=37783257)
 
 2. **Configure Environment**
+   
+   **Local Development:**
    ```
    BASE_URL: http://localhost:8080
+   USERNAME: admin
+   PASSWORD: admin
+   ```
+   
+   **Production:**
+   ```
+   BASE_URL: https://task-management-system-0c0p.onrender.com
    USERNAME: admin
    PASSWORD: admin
    ```
@@ -857,8 +872,27 @@ A complete Postman collection is available for testing all API endpoints.
 ### Test API Endpoints (Manual)
 
 #### 1. Create a Task
+
+**Local Development:**
 ```bash
 POST http://localhost:8080/api/tasks
+Content-Type: application/json
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
+
+{
+  "title": "Fix login bug",
+  "description": "Users cannot login with special characters in password",
+  "priority": "HIGH",
+  "dueDate": "2025-12-20T17:00:00",
+  "estimatedHours": 8,
+  "assigneeId": 1,
+  "projectId": 1
+}
+```
+
+**Production:**
+```bash
+POST https://task-management-system-0c0p.onrender.com/api/tasks
 Content-Type: application/json
 Authorization: Basic YWRtaW46YWRtaW4xMjM=
 
@@ -876,12 +910,22 @@ Authorization: Basic YWRtaW46YWRtaW4xMjM=
 **Note:** Bạn cần tạo User và Project trước, hoặc dùng mock data có sẵn.
 
 #### 2. Get Task by ID
+
+**Local Development:**
 ```bash
 GET http://localhost:8080/api/tasks/1
 Authorization: Basic YWRtaW46YWRtaW4xMjM=
 ```
 
+**Production:**
+```bash
+GET https://task-management-system-0c0p.onrender.com/api/tasks/1
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
+```
+
 #### 3. Update Task
+
+**Local Development:**
 ```bash
 PUT http://localhost:8080/api/tasks/1
 Content-Type: application/json
@@ -893,9 +937,29 @@ Authorization: Basic YWRtaW46YWRtaW4xMjM=
 }
 ```
 
+**Production:**
+```bash
+PUT https://task-management-system-0c0p.onrender.com/api/tasks/1
+Content-Type: application/json
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
+
+{
+  "status": "IN_PROGRESS",
+  "assigneeId": 2
+}
+```
+
 #### 4. Delete Task
+
+**Local Development:**
 ```bash
 DELETE http://localhost:8080/api/tasks/1
+Authorization: Basic YWRtaW46YWRtaW4xMjM=
+```
+
+**Production:**
+```bash
+DELETE https://task-management-system-0c0p.onrender.com/api/tasks/1
 Authorization: Basic YWRtaW46YWRtaW4xMjM=
 ```
 
@@ -1008,27 +1072,200 @@ Examples:
 
 ## API Endpoints Summary
 
-### Currently Implemented
+All endpoints require **Basic Authentication** (except `/actuator/health`).
+
+**Default Credentials:**
+- Username: `admin`
+- Password: `admin`
+- Authorization Header: `Basic YWRtaW46YWRtaW4=`
+
+---
+
+### Task Management APIs
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| **POST** | `/api/tasks` | Create new task with multiple assignees | ✅ Yes |
+| **GET** | `/api/tasks/{id}` | Get task by ID (includes assignees, project) | ✅ Yes |
+| **PUT** | `/api/tasks/{id}` | Update task details and assignees | ✅ Yes |
+| **DELETE** | `/api/tasks/{id}` | Delete task (hard delete with cascade) | ✅ Yes |
+
+**Request Body Example (POST /api/tasks):**
+```json
+{
+  "title": "Fix login bug",
+  "description": "Users cannot login with special characters",
+  "priority": "HIGH",
+  "dueDate": "2025-12-31T17:00:00",
+  "estimatedHours": 8,
+  "assigneeIds": [3, 7, 8],
+  "projectId": 1
+}
+```
+
+**Response Example (200 OK):**
+```json
+{
+  "id": 7,
+  "title": "Fix login bug",
+  "status": "PENDING",
+  "priority": "HIGH",
+  "assignees": [
+    {"id": 3, "username": "alice", "email": "alice@example.com"},
+    {"id": 7, "username": "admin", "email": "admin@example.com"},
+    {"id": 8, "username": "anna", "email": "anna@example.com"}
+  ],
+  "project": {"id": 1, "name": "Website Redesign", "active": true},
+  "createdAt": "2025-12-20T23:25:38",
+  "updatedAt": "2025-12-20T23:25:38"
+}
+```
+
+---
+
+### User Management APIs
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| **POST** | `/api/users` | Create new user | ✅ Yes |
+| **GET** | `/api/users` | Get all active users | ✅ Yes |
+| **GET** | `/api/users/{id}` | Get user by ID | ✅ Yes |
+| **PUT** | `/api/users/{id}` | Update user details | ✅ Yes |
+| **DELETE** | `/api/users/{id}` | Soft delete user (set deleted=true) | ✅ Yes |
+| **POST** | `/api/users/{id}/restore` | Restore deleted user | ✅ Yes |
+
+**Request Body Example (POST /api/users):**
+```json
+{
+  "username": "john_doe",
+  "email": "john@example.com",
+  "password": "SecurePass123!",
+  "fullName": "John Doe"
+}
+```
+
+**Business Rules:**
+- DELETE: Soft delete (user remains in DB with `deleted=true`)
+- Deleted users are automatically removed from task assignments via junction table cleanup
+
+---
+
+### Project Management APIs
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| **POST** | `/api/projects` | Create new project | ✅ Yes |
+| **GET** | `/api/projects` | Get all active projects | ✅ Yes |
+| **GET** | `/api/projects/{id}` | Get project by ID | ✅ Yes |
+| **PUT** | `/api/projects/{id}` | Update project details | ✅ Yes |
+| **DELETE** | `/api/projects/{id}` | Archive project (set active=false) | ✅ Yes |
+| **POST** | `/api/projects/{id}/reactivate` | Reactivate archived project | ✅ Yes |
+| **GET** | `/api/projects/{id}/tasks` | Get all tasks for a project | ✅ Yes |
+
+**Request Body Example (POST /api/projects):**
+```json
+{
+  "name": "Website Redesign",
+  "description": "Redesign company website",
+  "ownerId": 5,
+  "startDate": "2025-12-20",
+  "endDate": "2026-03-31"
+}
+```
+
+---
+
+### Health & Monitoring
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| **GET** | `/actuator/health` | Application health check | ❌ No |
+| **GET** | `/actuator/metrics` | Application metrics | ✅ Yes |
+| **GET** | `/actuator/prometheus` | Prometheus metrics | ✅ Yes |
+
+---
+
+### Testing APIs with cURL
+
+#### Local Development
+
+**Create Task:**
+```bash
+curl -X POST http://localhost:8080/api/tasks \
+  -u admin:admin \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Test Task",
+    "description": "Testing API",
+    "priority": "HIGH",
+    "dueDate": "2025-12-31T17:00:00",
+    "assigneeIds": [3],
+    "projectId": 1
+  }'
+```
+
+**Get Task:**
+```bash
+curl -X GET http://localhost:8080/api/tasks/7 \
+  -u admin:admin
+```
+
+**Get All Users:**
+```bash
+curl -X GET http://localhost:8080/api/users \
+  -u admin:admin
+```
+
+**Health Check (No Auth):**
+```bash
+curl -X GET http://localhost:8080/actuator/health
+```
+
+#### Production
+
+**Create Task:**
+```bash
+curl -X POST https://task-management-system-0c0p.onrender.com/api/tasks \
+  -u admin:admin \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Test Task",
+    "description": "Testing API",
+    "priority": "HIGH",
+    "dueDate": "2025-12-31T17:00:00",
+    "assigneeIds": [3],
+    "projectId": 1
+  }'
+```
+
+**Get Task:**
+```bash
+curl -X GET https://task-management-system-0c0p.onrender.com/api/tasks/7 \
+  -u admin:admin
+```
+
+**Get All Users:**
+```bash
+curl -X GET https://task-management-system-0c0p.onrender.com/api/users \
+  -u admin:admin
+```
+
+**Health Check (No Auth):**
+```bash
+curl -X GET https://task-management-system-0c0p.onrender.com/actuator/health
+```
+
+---
+
+### Not Yet Implemented
 
 | Method | Endpoint | Description | Status |
 |--------|----------|-------------|--------|
-| POST | /api/tasks | Create new task | ✅ Implemented |
-| GET | /api/tasks/{id} | Get task by ID | ✅ Implemented |
-| PUT | /api/tasks/{id} | Update task | ✅ Implemented |
-| DELETE | /api/tasks/{id} | Delete task | ✅ Implemented |
-
-### Planned for Next Phase
-
-| Method | Endpoint | Description | Status |
-|--------|----------|-------------|--------|
-| GET | /api/tasks | List all tasks with filters | 🔲 Planned |
-| GET | /api/tasks?assigneeId=1 | Filter tasks by assignee | 🔲 Planned |
-| GET | /api/tasks?projectId=1 | Filter tasks by project | 🔲 Planned |
-| GET | /api/users/{id} | Get user by ID | 🔲 Planned |
-| GET | /api/users | List all users | 🔲 Planned |
-| POST | /api/users | Create user | 🔲 Planned |
-| GET | /api/projects/{id} | Get project details | 🔲 Planned |
-| POST | /api/projects | Create project | 🔲 Planned |
+| GET | /api/tasks | List tasks with filters (status, assignee, project) | 🔲 Planned |
+| POST | /api/tasks/{id}/comments | Add comment to task | 🔲 Planned |
+| POST | /api/tasks/{id}/attachments | Upload file attachment | 🔲 Planned |
+| POST | /api/auth/login | JWT authentication | 🔲 Planned |
+| POST | /api/auth/register | User registration | 🔲 Planned |
 
 ---
 
