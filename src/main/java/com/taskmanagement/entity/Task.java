@@ -185,25 +185,6 @@ public class Task {
     private String notes;
 
 // ==================== RELATIONSHIPS ====================
-/**
- * Many-to-One với User (Assignee)
- *
- * Quan hệ: Nhiều task → Một user (được giao)
- * Ví dụ: User "John" được giao Task 1, 2, 3
- *
- * @NotNull: Mỗi task bắt buộc phải có người chịu trách nhiệm
- *
- * Fetch = LAZY: Không load user khi lấy danh sách task
- * Cascade = NONE: Xóa task không xóa user
- *
- * optional=false: Ràng buộc NOT NULL trong DB
- *
- * Lý do: Không tồn tại task mà không có ai phụ trách
- */
-    // @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    // @JoinColumn(name = "assignee_id", nullable = true)
-    // @OnDelete(action = OnDeleteAction.SET_NULL)
-    // private User assignee;
 
 /**
  * Multi assignees per task - Nhiều người được giao cho một task
