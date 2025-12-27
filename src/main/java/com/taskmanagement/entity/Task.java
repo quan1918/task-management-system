@@ -11,6 +11,9 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.UpdateTimestamp;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import org.hibernate.annotations.OnDeleteAction;
 
 // Java built-in
@@ -230,6 +233,7 @@ public class Task {
         orphanRemoval = true
     )
     @Builder.Default
+    @JsonIgnore
     private List<Comment> comments = new ArrayList<>();
 
 /**
@@ -247,6 +251,7 @@ public class Task {
         orphanRemoval = true
     )
     @Builder.Default
+    @JsonIgnore
     private List<Attachment> attachments = new ArrayList<>();
 
     // ==================== SOFT DELETE FIELDS ====================

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -183,6 +184,7 @@ public class Project {
      */
     @OneToMany(mappedBy = "project", fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private List<Task> tasks = new ArrayList<>();
 
 // ==================== BUSINESS LOGIC METHODS ====================
