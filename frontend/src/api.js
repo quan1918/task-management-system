@@ -16,7 +16,7 @@ const apiClient = axios.create({
 
 export const getProjects = async () => {
     try {
-        const response = await apiClient.get('/api/projects/');
+        const response = await apiClient.get('/api/projects');
         return { success: true, data: response.data };
     } catch (error) {
         return { success: false, error: error.response?.data?.message || 'Failed to load projects.'};
@@ -25,7 +25,7 @@ export const getProjects = async () => {
 
 export const createProject = async (projectData) => {
     try {
-        const response = await apiClient.post('/api/projects/', projectData);
+        const response = await apiClient.post('/api/projects', projectData);
         return { success: true, data: response.data};
     } catch (error) {
         return { success: false, error: error.response?.data?.message || 'Failed to create project.'};
@@ -34,7 +34,7 @@ export const createProject = async (projectData) => {
 
 export const getProjectTasks = async (projectId) => {
     try {
-        const response = await apiClient.get(`/api/projects/${projectId}/tasks/`);
+        const response = await apiClient.get(`/api/projects/${projectId}/tasks`);
         return { success: true, data: response.data};
     } catch (error) {
         return { success: false, error: error.response?.data?.message || 'Failed to load tasks.'};
@@ -45,7 +45,7 @@ export const getProjectTasks = async (projectId) => {
 
 export const createTask = async (taskData) => {
     try {
-        const response = await apiClient.post('/api/tasks/', taskData);
+        const response = await apiClient.post('/api/tasks', taskData);
         return { success: true, data: response.data};
     } catch (error) {
         return { success: false, error: error.response?.data?.message || 'Failed to create task.'};
@@ -54,7 +54,7 @@ export const createTask = async (taskData) => {
 
 export const deleteTask = async (taskId) => {
     try {
-        await apiClient.delete(`/api/tasks/${taskId}/`);
+        await apiClient.delete(`/api/tasks/${taskId}`);
         return {success: true};
     } catch (error) {
         return { success: false, error: error.response?.data?.message || 'Failed to delete task.'};
@@ -63,7 +63,7 @@ export const deleteTask = async (taskId) => {
 
 export const updateTask = async (taskId, taskData) => {
     try {
-        const response = await apiClient.put(`/api/tasks/${taskId}/`, taskData);
+        const response = await apiClient.put(`/api/tasks/${taskId}`, taskData);
         return { success: true, data: response.data};
     } catch (error) {
         return { success: false, error: error.response?.data?.message || 'Failed to update task.'};
@@ -74,7 +74,7 @@ export const updateTask = async (taskId, taskData) => {
 
 export const getUsers = async () => {
     try {
-        const response = await apiClient.get('/api/users/');
+        const response = await apiClient.get('/api/users');
         return { success: true, data: response.data };
     } catch (error) {
         return { success: false, error: error.response?.data?.message || 'Failed to load users.'};
@@ -83,9 +83,18 @@ export const getUsers = async () => {
 
 export const createUser = async (userData) => {
     try {
-        const response = await apiClient.post('/api/users/', userData);
+        const response = await apiClient.post('/api/users', userData);
         return { success: true, data: response.data};
     } catch (error) {
         return { success: false, error: error.response?.data?.message || 'Failed to create user.'};
+    }
+};
+
+export const deleteUser = async (userId) => {
+    try {
+        await apiClient.delete(`/api/users/${userId}`);
+        return {success: true};
+    } catch (error) {
+        return { success: false, error: error.response?.data?.message || 'Failed to delete user.'};
     }
 };

@@ -45,6 +45,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = {"owner", "tasks"})
 public class Project {
 
 // ==================== PRIMARY KEY ====================
@@ -55,6 +57,7 @@ public class Project {
  */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
 // ==================== CORE FIELDS ====================

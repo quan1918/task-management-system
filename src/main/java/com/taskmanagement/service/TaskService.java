@@ -159,16 +159,11 @@ public class TaskService {
         log.info("Task saved succesfully: taskId={}, title={}", savedTask.getId(), savedTask.getTitle());
 
     // ========== STEP 5: Convert to Response DTO ==========
-        TaskResponse response = TaskResponse.from(savedTask);
-    
-        log.debug("TaskResponse created: taskId={}, assignee={}, project={}",
-            response.getId(),
-            response.getAssignees() != null ? response.getAssignees().size() : 0,
-            response.getProject().getName());
+
 
     // ========== STEP 7: Return Response ==========
         
-        return response;
+        return getTaskById(savedTask.getId());
     }    
 
     // ==================== GET TASK BY ID ====================

@@ -86,7 +86,7 @@ function ProjectsPage() {
                     <p>No projects found. Create your first project!</p>
                 ) : (
                     projects.map((project) => (
-                        <div key={project.id} className="project_card">
+                        <div key={project.id} className="project-card">
                             <h3>{project.name}</h3>
                             <p>{project.description}</p>
                             <div className="project-meta">

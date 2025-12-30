@@ -51,10 +51,23 @@ function TasksPage() {
 
     const loadTasks = async (projectId) => {
         setLoading(true);
+        setError('');
+
         const result = await getProjectTasks(projectId);
+
+        console.log('Dữ liệu tasks từ API:', result.data);
+        console.log('Kiểm tra assignees:', result.data?.map(t => ({
+            taskId: t.id,
+            title: t.title,
+            assignees: t.assignees,
+            assigneesLength: t.assignees?.length || 0
+        })));
+
         if (result.success) {
-            setTasks(result.data);
-            setError('');
+            setTasks([]);
+            setTimeout(() => {
+                setTasks(result.data || []);
+            }, 0);
         } else {
             setError(result.error);
             setTasks([]);
@@ -85,9 +98,22 @@ function TasksPage() {
         if (editingTask) {
             // gọi updateTask
             result = await updateTask(editingTask.id, taskData);
+
+            if (result.success) {
+                await loadTasks(selectedProjectId);
+            }
         } else {
             // gọi CreateTask
             result = await createTask(taskData);
+
+            if (result.success) {
+                const newTask = result.data;
+
+                setTasks(prevTasks => [newTask, ...prevTasks])
+
+                console.log('Task created:', newTask);
+                console.log('Assignees:', newTask.assignees);
+            }
         }
 
         if (result.success) {
@@ -110,7 +136,7 @@ function TasksPage() {
             status: 'PENDING',
             priority: 'MEDIUM',
             dueDate: '',
-            assigneedIds: ''
+            assigneeIds: ''
         });
         setEditingTask(null);
     };
@@ -118,27 +144,40 @@ function TasksPage() {
     // Mở modal edit với data của task
     const handleEdit = (task) => {
         setEditingTask(task);
+
+        const assigneeIds = Array.isArray(task.assignees)
+            ? task.assignees.filter(a => a && a.id).map(a => a.id).join(',')
+            : '';
+
         setFormData({
-            title: task.title,
-            description: task.description,
-            projectId: task.project.id.toString(),
-            status: task.status,
-            priority: task.priority,
+            title: task.title || '',
+            description: task.description || '',
+            projectId: task.project?.id?.toString() || '',
+            status: task.status || 'PENDING',
+            priority: task.priority || 'MEDIUM',
             dueDate: task.dueDate ? task.dueDate.slice(0, 16) : '',
-            assigneeIds: task.assignees?.map(a => a.id).join(',') || ''
+            assigneeIds: assigneeIds
         });
         setIsModalOpen(true);
     };
     
     const handleDelete = async (taskId) => {
-        if (!confirm ('Are you sure you want to delete this task?')) return;
+        if (!confirm('Are you sure you want to delete this task?')) return;
 
+        // Backup để rollback
+        const previousTasks = [...tasks];
+        
+        // Xóa ngay trong UI (optimistic)
+        setTasks(currentTasks => currentTasks.filter(task => task.id !== taskId));
+
+        // Gọi API
         const result = await deleteTask(taskId);
-        if (result.success) {
-            loadTasks(selectedProjectId);
-        } else {
+        
+        if (!result.success) {
+            // Rollback nếu API thất bại
             alert(result.error);
-        } 
+            setTasks(previousTasks);
+        }
     };
 
     const handleInputChange = (e) => {
@@ -166,14 +205,14 @@ function TasksPage() {
         return statusMap[status] || 'status-pending';
     };
 
-    const getProprityBadgeClass = (priority) => {
-        const priorityMao = {
+    const getPriorityBadgeClass = (priority) => {
+        const priorityMap = {
             LOW: 'priority-low',
             MEDIUM: 'priority-medium',
             HIGH: 'priority-high',
             CRITICAL: 'priority-critical'
         };
-        return priorityMao[priority] || 'priority-medium';
+        return priorityMap[priority] || 'priority-medium';
     };
 
     return (
@@ -200,8 +239,8 @@ function TasksPage() {
                 </select>
             </div>
             
-            {loading && <div className>Loading tasks...</div>}
-            {error && <div className>Error: {error}</div>}
+            {loading && <div className="loading">Loading tasks...</div>}
+            {error && <div className="error">Error: {error}</div>}
 
             {!loading && !error && selectedProjectId && (
                 <div className="tasks-list">
@@ -216,19 +255,22 @@ function TasksPage() {
                                         <span className={`badge ${getStatusBadgeClass(task.status)}`}>
                                             {task.status}
                                         </span>
-                                        <span className={`badge ${getProprityBadgeClass(task.priority)}`}>
+                                        <span className={`badge ${getPriorityBadgeClass(task.priority)}`}>
                                             {task.priority}
                                         </span>
                                     </div>
                                 </div>
                                 <p>{task.description}</p>
                                 <div className="task-meta">
-                                    <span>Project: {task.project?.name}</span>
-                                    {task.assignees?.length > 0 && (
+                                    <span>Project: {task.project?.name || 'N/A'}</span>
+                                    {Array.isArray(task.assignees) && task.assignees.length > 0 ? (
                                         <span>
-                                            Assignees: {task.assignees.map(a => a.fullName).join(', ')}
+                                            Assignees: {task.assignees
+                                                .filter(a => a && a.fullName)
+                                                .map(a => a.fullName)
+                                                .join(', ')}
                                         </span>
-                                    )}
+                                    ) : null}
                                 </div>
                                 <div className="task-actions">
                                     <button
@@ -253,7 +295,7 @@ function TasksPage() {
             {/* Modal for Create/Edit Task */}
             <Modal
                 isOpen={isModalOpen}
-                onCLose={handleCloseModal}
+                onClose={handleCloseModal}
                 title={editingTask ? 'Edit Task' : 'Add New Task'}
             >
                 <form onSubmit={handleSubmit}>
@@ -345,7 +387,7 @@ function TasksPage() {
                             onChange={handleInputChange}
                             placeholder="e.g., 1,2,3"
                         />
-                        <small>Available users: {users.map(u => `${u.id} (${u.name})`).join(', ')}</small>
+                        <small>Available users: {users.map(u => `${u.id} (${u.username})`).join(', ')}</small>
                     </div>
 
                     <div className="form-actions">

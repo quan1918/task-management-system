@@ -8,6 +8,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.Where;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,12 +45,14 @@ import java.util.Set;
     }
 )
 @SQLDelete(sql = "UPDATE users SET deleted = true, deleted_at = NOW() WHERE id = ?")
-@Where(clause = "deleted = false")
+// REMOVED @Where annotation - it was blocking assignees JOIN FETCH
+// Filter deleted users in repository queries instead
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = {"passwordHash", "assignedTasks", "ownedProjects", "comments"})
 public class User {
 
 // ==================== PRIMARY KEY ====================
@@ -60,6 +64,7 @@ public class User {
  */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
 // ==================== CORE FIELDS ====================
@@ -229,14 +234,17 @@ public class User {
 
     @ManyToMany(mappedBy = "assignees", fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private Set<Task> assignedTasks = new HashSet<>();
 
     @OneToMany(mappedBy = "owner")
     @Builder.Default
+    @JsonIgnore
     private List<Project> ownedProjects = new ArrayList<>();
 
     @OneToMany(mappedBy = "author")
     @Builder.Default
+    @JsonIgnore
     private List<Comment> comments = new ArrayList<>();
 
     // ========== LIFECYCLE CALLBACKS ==========

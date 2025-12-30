@@ -5,6 +5,7 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDateTime;
 
@@ -48,10 +49,13 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = {"task", "author"})
 public class Comment {
 // ==================== PRIMARY KEY ====================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
 // ==================== CORE FIELDS ====================
@@ -125,6 +129,7 @@ public class Comment {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "task_id", nullable = false)
     @NotNull(message = "Comment must belong to a task")
+    @JsonIgnore
     private Task task;
 
 /**
@@ -156,6 +161,7 @@ public class Comment {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "author_id", nullable =false)
     @NotNull(message = "Comment must have an author")
+    @JsonIgnore
     private User author;
 
 // ==================== AUDIT FIELDS ====================

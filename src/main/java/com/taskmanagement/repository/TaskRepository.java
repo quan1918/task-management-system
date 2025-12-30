@@ -191,6 +191,13 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
     
     List<Task> findAllByProjectId(Long id);
 
+    @Query("SELECT DISTINCT t FROM Task t " +
+           "LEFT JOIN FETCH t.assignees " +
+           "LEFT JOIN FETCH t.project " +
+           "WHERE t.project.id = :projectId " +
+           "ORDER BY t.createdAt DESC")
+    List<Task> findAllByProjectIdWithAssignees(@Param("projectId") Long projectId);
+
     // ==================== CÁC PHƯƠNG THỨC KẾ THỪA ====================
     //
     // Từ JpaRepository<Task, Long>:

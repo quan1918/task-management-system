@@ -270,7 +270,7 @@ public class ProjectService {
                 return new ProjectNotFoundException(projectId);
             });
             
-        List<Task> tasks = taskRepository.findAllByProjectId(projectId);
+        List<Task> tasks = taskRepository.findAllByProjectIdWithAssignees(projectId);
 
         log.info("Retrieved {} tasks for projectId={}", tasks.size(), projectId);
 

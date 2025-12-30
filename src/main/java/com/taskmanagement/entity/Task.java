@@ -64,12 +64,15 @@ import java.util.HashSet;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = {"assignees", "project", "comments", "attachments"})
 public class Task {
     
 // ==================== PRIMARY KEY ====================
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
 // ==================== CORE FIELDS ====================

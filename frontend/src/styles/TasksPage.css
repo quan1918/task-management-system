@@ -149,6 +149,18 @@
     margin: 15px 0;
 }
 
+.task-meta span {
+  display: inline-block;
+  margin-right: 15px;
+  color: #666;  
+  font-size: 14px;
+}
+
+.task-meta span:last-child {
+  color: #007bff;  
+  font-weight: 500;
+}
+
 .task-actions {
     display: flex;
     gap: 10px;

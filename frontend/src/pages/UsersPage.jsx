@@ -5,7 +5,7 @@ import '../styles/UsersPage.css';
 
 function UsersPage() {
     const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -35,7 +35,7 @@ function UsersPage() {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefaut();
+        e.preventDefault();
 
         // Gọi backend API
         const result = await createUser(formData);
@@ -83,13 +83,14 @@ function UsersPage() {
                 {users.length === 0 ? (
                     <p>No users found.</p>
                 ) : (
-                    users.map((user) => {
+                    users.map((user) => (
                         <div key={user.id} className="user-card">
                             <div className="user-avatar">
-                                {user.fullName?.chartAt(0)?.toUpperCase() || 'U' }
+                                {user.fullName?.charAt(0)?.toUpperCase() || 'U' }
                             </div>
                             <div className="user-info">
                                 <h3>{user.fullName}</h3>
+                                <p className="user-id">{user.id}</p>
                                 <p className="username">@{user.username}</p>
                                 <p className="email">{user.email}</p>
                                 <span className={`status ${user.active ? 'active' : 'inactive'}`}>
@@ -105,7 +106,7 @@ function UsersPage() {
                                 </button>
                             </div>
                         </div>
-                    })
+                    ))
                 )}
             </div>
 
