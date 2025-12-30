@@ -129,7 +129,7 @@ export const createUser = (data) => api.post('/api/users', data);
 
 ### 3 Pages
 - **ProjectsPage:** Hiển thị list + form tạo project mới
-- **TasksPage:** Chọn project → load tasks → create/delete
+- **TasksPage:** Chọn project → load tasks → create/delete/edit
 - **UsersPage:** Hiển thị list + form tạo user mới
 
 ### Components

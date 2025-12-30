@@ -47,7 +47,7 @@ public class SecurityConfig {
 
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:5173",
-            "http://localhost:3000",
+            "http://localhost:4173",
             "https://task-management-system-0c0p.onrender.com"
         ));
 
