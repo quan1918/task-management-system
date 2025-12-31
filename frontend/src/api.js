@@ -10,9 +10,35 @@ const apiClient = axios.create({
         username: import.meta.env.VITE_API_USERNAME,
         password: import.meta.env.VITE_API_PASSWORD,
     },
-    withCredentials: true
+    withCredentials: true,
+    timeout: 10000,
 });
 
+apiClient.interceptors.response.use(
+    (response) => response, // Success - pass through
+    (error) => {
+        // ✅ ADD: Better error logging
+        if (error.response) {
+            // Backend responded with error status
+            console.error('API Error:', {
+                status: error.response.status,
+                message: error.response.data?.message || error.message,
+                url: error.config?.url,
+            });
+        } else if (error.request) {
+            // Request sent but no response (CORS/Network issue)
+            console.error('Network/CORS Error:', {
+                message: 'No response from server. Check CORS config or network.',
+                url: error.config?.url,
+                baseURL: error.config?.baseURL,
+            });
+        } else {
+            // Request setup error
+            console.error('Request Setup Error:', error.message);
+        }
+        return Promise.reject(error);
+    }
+);
 // ============= PROJECT APIs =============
 
 export const getProjects = async () => {
