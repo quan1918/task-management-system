@@ -1,547 +1,415 @@
-# Task Management System - Frontend (Demo UI)
+# Task Management System - Frontend
 
-> ⚠️ **LƯU Ý QUAN TRỌNG:** Đây là project tập trung vào **BACKEND (Spring Boot)**. 
-> Frontend chỉ là giao diện demo đơn giản để visualize backend APIs, phù hợp cho fresher level.
+> Modern React 19 frontend application for task management system with project tracking and team collaboration.
 
 ---
 
-## 📋 Mục lục
+## 📋 Table of Contents
 
-1. [Giới thiệu](#giới-thiệu)
+1. [Overview](#overview)
 2. [Tech Stack](#tech-stack)
-3. [Cấu trúc Project](#cấu-trúc-project)
-4. [Cài đặt và Chạy](#cài-đặt-và-chạy)
-5. [Backend APIs](#backend-apis)
-6. [Tính năng](#tính-năng)
+3. [Project Structure](#project-structure)
+4. [Installation & Setup](#installation--setup)
+5. [Features](#features)
+6. [Backend Integration](#backend-integration)
+7. [Development](#development)
 
 ---
 
-## Giới thiệu
+## Overview
 
-### Backend (Spring Boot) - Trọng tâm của project
-- ✅ Clean Architecture với 4 layers (API, Service, Repository, Entity)
-- ✅ 18 RESTful APIs với validation đầy đủ
-- ✅ PostgreSQL database với relationships
-- ✅ Spring Security với Basic Authentication
-- ✅ Exception handling toàn cục
-- ✅ Deploy trên Render (production-ready)
+A single-page React application that provides a comprehensive dashboard for managing projects, tasks, and team members. Built with React 19 and Vite for optimal performance.
 
-### Frontend (React) - UI demo đơn giản
-- ✅ 3 pages: Projects, Tasks, Users
-- ✅ Gọi backend APIs qua Axios
-- ✅ CRUD operations cơ bản
-- ✅ Form đơn giản với validation
-- ✅ **Giữ code đơn giản để dễ giải thích trong phỏng vấn**
-
-**Tại sao giữ frontend đơn giản?**
-- Frontend chỉ để demo backend APIs hoạt động
-- Tránh over-engineering (không cần React Query, Redux, TypeScript)
-- Dễ maintain và dễ giải thích source code
-- Tập trung showcase backend skills trong interview
+### Key Features
+- ✅ **Unified Dashboard** - Single page with all management features
+- ✅ **Project Management** - Create and track multiple projects
+- ✅ **Task Management** - Full CRUD operations with status tracking
+- ✅ **User Management** - Team member administration
+- ✅ **Real-time Search** - Filter tasks by title and description
+- ✅ **Status Filtering** - Filter tasks by status (PENDING, IN_PROGRESS, COMPLETED, BLOCKED)
+- ✅ **Responsive Design** - Works on desktop and mobile devices
 
 ---
 
 ## Tech Stack
 
-### Frontend (Minimal - Demo Purpose Only)
+### Core Technologies
 ```json
 {
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "axios": "^1.6.0"
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "axios": "^1.13.2"
   }
 }
 ```
 
-- **React 18** - UI library
-- **Vite** - Build tool
-- **Axios** - HTTP client để gọi backend APIs
-- **CSS thuần** - Styling đơn giản (không dùng frameworks)
+- **React 19.2** - Latest React with improved performance
+- **Vite 7.2** - Lightning-fast build tool and dev server
+- **Axios 1.13** - HTTP client for API communication
+- **CSS3** - Modern styling with Flexbox/Grid
 
-### Backend (Main Focus - Production Ready)
-- **Spring Boot 3.2** - Java framework
-- **PostgreSQL** - Relational database
-- **Spring Data JPA** - ORM
-- **Spring Security** - Authentication
-- **Maven** - Build tool
+### Design Decisions
 
-### ❌ KHÔNG sử dụng (để giữ frontend đơn giản)
-- React Query / TanStack Query
-- Redux / Zustand / Context API phức tạp
-- React Hook Form / Yup
-- TypeScript
-- Material-UI / Ant Design / Chakra UI
-- Tailwind CSS
-- React Router (dùng conditional rendering)
-- date-fns / moment.js
+**✅ What We Use:**
+- Component-based architecture
+- React Hooks (useState, useEffect)
+- Axios interceptors for authentication
+- CSS modules for styling
+- Environment variables for configuration
 
-→ **Mục tiêu:** Code dễ đọc, dễ hiểu, dễ giải thích trong 5 phút
+**❌ What We Don't Use (Kept Simple):**
+- No React Router (single page application)
+- No Redux/Zustand (local state management)
+- No React Query (direct API calls)
+- No TypeScript (vanilla JavaScript)
+- No UI frameworks (custom CSS)
 
 ---
 
-## Cấu trúc Project (Đơn giản)
+## Project Structure
 
 ```
 frontend/
 ├── src/
-│   ├── api.js                  # Tất cả API calls (Axios + Basic Auth)
-│   ├── App.jsx                 # Main component với navigation
-│   ├── main.jsx                # Entry point
+│   ├── api.js                    # Centralized API layer with Axios
+│   ├── App.jsx                   # Root component with header
+│   ├── App.css                   # App-level styling
+│   ├── main.jsx                  # Entry point
+│   ├── index.css                 # Global styles
 │   │
 │   ├── pages/
-│   │   ├── ProjectsPage.jsx    # List projects + Create project
-│   │   ├── TasksPage.jsx       # List tasks + Create/Delete task
-│   │   └── UsersPage.jsx       # List users + Create user
+│   │   └── DashboardPage.jsx     # Main dashboard (635 lines)
+│   │                              # - Project panel
+│   │                              # - Task panel with filters
+│   │                              # - User panel
 │   │
 │   ├── components/
-│   │   ├── Modal.jsx           # Reusable modal dialog
-│   │   └── Navbar.jsx          # Simple navigation bar
+│   │   └── Modal.jsx             # Reusable modal dialog
 │   │
 │   └── styles/
-│       └── global.css          # All CSS trong 1 file
+│       ├── DashboardPage.css     # Dashboard-specific styles
+│       └── Modal.css             # Modal styling
 │
-├── .env.development            # Local backend URL + credentials
-├── .env.production             # Production backend URL
-├── package.json
-├── vite.config.js
-└── README.md
+├── public/                       # Static assets
+├── .env.development              # Local environment config
+├── .env.production               # Production environment config
+├── package.json                  # Dependencies
+├── vite.config.js               # Vite configuration
+└── README.md                    # This file
 ```
 
-**Giải thích cấu trúc:**
+### Key Files
 
-### `src/api.js` - Centralized API Layer
-Tất cả backend API calls trong 1 file duy nhất:
+#### `src/api.js` - Centralized API Layer
+All backend API calls in one place with error handling:
 ```javascript
-// Axios instance với Basic Auth
-export const api = axios.create({ ... });
+// Axios instance with Basic Auth
+const apiClient = axios.create({
+    baseURL: import.meta.env.VITE_API_BASE_URL,
+    auth: {
+        username: import.meta.env.VITE_API_USERNAME,
+        password: import.meta.env.VITE_API_PASSWORD,
+    }
+});
 
 // API functions
-export const getProjects = () => api.get('/api/projects');
-export const createProject = (data) => api.post('/api/projects', data);
-export const getProjectTasks = (projectId) => api.get(`/api/projects/${projectId}/tasks`);
-export const createTask = (data) => api.post('/api/tasks', data);
-export const deleteTask = (id) => api.delete(`/api/tasks/${id}`);
-export const getUsers = () => api.get('/api/users');
-export const createUser = (data) => api.post('/api/users', data);
+export const getProjects = async () => { /* ... */ };
+export const createProject = async (data) => { /* ... */ };
+export const getProjectTasks = async (projectId) => { /* ... */ };
+export const createTask = async (data) => { /* ... */ };
+export const updateTask = async (id, data) => { /* ... */ };
+export const deleteTask = async (id) => { /* ... */ };
+export const getUsers = async () => { /* ... */ };
+export const createUser = async (data) => { /* ... */ };
+export const deleteUser = async (id) => { /* ... */ };
 ```
-→ Dễ track tất cả API calls, không cần nhiều files
 
-### 3 Pages
-- **ProjectsPage:** Hiển thị list + form tạo project mới
-- **TasksPage:** Chọn project → load tasks → create/delete/edit
-- **UsersPage:** Hiển thị list + form tạo user mới
+#### `src/pages/DashboardPage.jsx` - Main Dashboard
+Single page application with three main sections:
+- **Projects Panel**: List of projects with task counts
+- **Tasks Panel**: Task list with search/filter and CRUD operations
+- **Users Panel**: Team member list with creation/deletion
 
-### Components
-- **Modal:** Reusable dialog (dùng cho tất cả forms)
-- **Navbar:** 3 links (Projects | Tasks | Users)
-
-### Không có:
-- ❌ Nhiều layers (hooks/, utils/, api/)
-- ❌ Component phân cấp phức tạp
-- ❌ Custom hooks
-- ❌ Utility functions
+#### `src/components/Modal.jsx` - Reusable Modal
+Generic modal component used for all forms (create project, create task, create user).
 
 ---
 
-## Cài đặt và Chạy
+## Installation & Setup
 
-### Yêu cầu
-- Node.js 18+
-- Backend đang chạy (local hoặc Render)
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
+- Backend API running (local or production)
 
-### Bước 1: Khởi tạo project
+### Step 1: Install Dependencies
 
 ```bash
 cd frontend
-npm create vite@latest . -- --template react
 npm install
-npm install axios
 ```
 
-### Bước 2: Cấu hình môi trường
+### Step 2: Configure Environment
 
-Tạo file `.env.development`:
+Create `.env.development` for local development:
 ```env
-VITE_API_BASE_URL=http://localhost:8080
-VITE_API_USERNAME=admin
-VITE_API_PASSWORD=admin
 ```
 
-Tạo file `.env.production`:
+Create `.env.production` for production:
 ```env
-VITE_API_BASE_URL=https://task-management-system-0c0p.onrender.com
-VITE_API_USERNAME=admin
-VITE_API_PASSWORD=admin
 ```
 
-### Bước 3: Chạy app
+### Step 3: Run Development Server
 
 ```bash
 npm run dev
 ```
 
-Mở browser: `http://localhost:5173`
+Access at: `http://localhost:5173`
 
-### Bước 4: Build production (optional)
+### Step 4: Build for Production
 
 ```bash
 npm run build
 npm run preview
 ```
 
+Output in `dist/` folder.
+
 ---
 
-## Backend APIs
+## Features
 
-Backend Spring Boot cung cấp **18 REST APIs**. Frontend chỉ dùng **8 APIs** quan trọng nhất:
+### 1. Project Management
 
-### 🎯 APIs Frontend Sử Dụng
+**Display:**
+- Grid layout showing all projects
+- Each card shows project name, description, and task count
+- Click to select and view tasks
 
-#### Projects
-```javascript
-GET    /api/projects           // Lấy danh sách projects
-POST   /api/projects           // Tạo project mới
-GET    /api/projects/{id}/tasks // Lấy tasks của 1 project
-```
+**Create Project:**
+- Modal form with fields: name, description, owner (user dropdown), start date, end date
+- Form validation
+- Success: Refreshes project list
 
-#### Tasks
-```javascript
-POST   /api/tasks              // Tạo task mới
-DELETE /api/tasks/{id}         // Xóa task
-PUT    /api/tasks/{id}         // Update task
-```
+**API Used:**
+- `GET /api/projects` - Load all projects
+- `POST /api/projects` - Create new project
 
-#### Users
-```javascript
-GET    /api/users              // Lấy danh sách users
-POST   /api/users              // Tạo user mới
-```
+### 2. Task Management
+
+**Display:**
+- Task list filtered by selected project
+- Shows: title, description, status, priority, due date, assignees
+- Real-time search by title/description
+- Status filter dropdown (ALL, PENDING, IN_PROGRESS, COMPLETED, BLOCKED)
+
+**Create Task:**
+- Modal form with fields: title, description, project, status, priority, due date, assignees
+- Assignees: Multi-select from users list
+- Success: Refreshes task list
+
+**Update Task:**
+- Click task status to change (PENDING → IN_PROGRESS → COMPLETED → BLOCKED)
+- Inline status update without page reload
+
+**Delete Task:**
+- Delete button on each task
+- Confirmation dialog
+- Success: Removes from list
+
+**API Used:**
+- `GET /api/projects/{id}/tasks` - Load project tasks
+- `POST /api/tasks` - Create new task
+- `PUT /api/tasks/{id}` - Update task (status change)
+- `DELETE /api/tasks/{id}` - Delete task
+
+### 3. User Management
+
+**Display:**
+- Table showing all users (username, email, full name)
+- Delete button for each user
+
+**Create User:**
+- Modal form with fields: username, email, password, full name
+- Email validation
+- Success: Refreshes user list
+
+**Delete User:**
+- Click delete button
+- Confirmation dialog
+- Success: Removes from list
+
+**API Used:**
+- `GET /api/users` - Load all users
+- `POST /api/users` - Create new user
+- `DELETE /api/users/{id}` - Delete user
+
+### 4. Search & Filter
+
+**Search:**
+- Text input in task panel
+- Filters tasks by title and description (case-insensitive)
+- Updates instantly on typing
+
+**Status Filter:**
+- Dropdown with options: ALL, PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+- Combines with search filter
+- Shows task count for current filter
+
+---
+
+## Backend Integration
+
+### Authentication
+- **Method**: Basic Authentication
+- **Credentials**: From environment variables
+- **Implementation**: Axios auth config
+
+### API Base URL
+- **Local**: `http://localhost:8080`
+- **Production**: `https://task-management-system-latest-97wu.onrender.com`
 
 ### Request/Response Examples
 
-**Tạo Project:**
+**Create Project:**
 ```javascript
 POST /api/projects
 {
   "name": "Website Redesign",
-  "description": "Redesign company website",
+  "description": "Modernize company website",
   "ownerId": 1,
-  "startDate": "2025-12-20",
-  "endDate": "2026-03-31"
+  "startDate": "2026-01-01",
+  "endDate": "2026-06-30"
 }
 ```
 
-**Tạo Task:**
+**Create Task:**
 ```javascript
 POST /api/tasks
 {
-  "title": "Fix login bug",
-  "description": "Users cannot login with special characters",
+  "title": "Design homepage mockup",
+  "description": "Create wireframes and mockups",
+  "projectId": 1,
+  "status": "PENDING",
   "priority": "HIGH",
-  "dueDate": "2025-12-31T17:00:00",
-  "estimatedHours": 8,
-  "assigneeIds": [1, 2],
-  "projectId": 1
+  "dueDate": "2026-02-01T17:00:00",
+  "assigneeIds": [1, 2]
 }
 ```
 
-**Tạo User:**
+**Update Task Status:**
+```javascript
+PUT /api/tasks/{id}
+{
+  "status": "IN_PROGRESS"
+}
+```
+
+**Create User:**
 ```javascript
 POST /api/users
 {
   "username": "john_doe",
   "email": "john@example.com",
-  "password": "SecurePass123!",
+  "password": "SecurePass123",
   "fullName": "John Doe"
 }
 ```
 
----
-
-## Tính năng
-
-### 1. Projects Page
-
-**Hiển thị:**
-- Table với danh sách projects (name, owner, dates)
-- Button "Add Project"
-
-**Tạo project:**
-- Click "Add Project" → Modal mở
-- Form: name, description, ownerId, startDate, endDate
-- Submit → Gọi `POST /api/projects`
-- Success → Đóng modal, reload list
-
-### 2. Tasks Page
-
-**Hiển thị:**
-- Dropdown chọn project
-- Table với tasks của project đã chọn
-- Button "Add Task"
-- Mỗi task có button "Delete"
-
-**Tạo task:**
-- Click "Add Task" → Modal mở
-- Form: title, description, priority, dueDate, assigneeIds (comma-separated), projectId
-- Submit → Gọi `POST /api/tasks`
-- Success → Đóng modal, reload list
-
-**Xóa task:**
-- Click "Delete" → Confirm dialog
-- Yes → Gọi `DELETE /api/tasks/{id}`
-- Success → Reload list
-
-### 3. Users Page
-
-**Hiển thị:**
-- Table với danh sách users (username, email, fullName)
-- Button "Add User"
-
-**Tạo user:**
-- Click "Add User" → Modal mở
-- Form: username, email, password, fullName
-- Submit → Gọi `POST /api/users`
-- Success → Đóng modal, reload list
-
----
-
-## Code Examples
-
-### `src/api.js` - API Layer
-
-```javascript
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const USERNAME = import.meta.env.VITE_API_USERNAME;
-const PASSWORD = import.meta.env.VITE_API_PASSWORD;
-
-// Create axios instance with Basic Auth
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Authorization': 'Basic ' + btoa(`${USERNAME}:${PASSWORD}`),
-    'Content-Type': 'application/json'
-  }
-});
-
-// API functions
-export const getProjects = () => api.get('/api/projects');
-export const createProject = (data) => api.post('/api/projects', data);
-export const getProjectTasks = (projectId) => api.get(`/api/projects/${projectId}/tasks`);
-export const createTask = (data) => api.post('/api/tasks', data);
-export const deleteTask = (id) => api.delete(`/api/tasks/${id}`);
-export const getUsers = () => api.get('/api/users');
-export const createUser = (data) => api.post('/api/users', data);
-```
-
-### `src/pages/ProjectsPage.jsx` - Example Page
-
-```javascript
-import { useState, useEffect } from 'react';
-import { getProjects, createProject } from '../api';
-import Modal from '../components/Modal';
-
-export default function ProjectsPage() {
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({});
-
-  // Load projects khi component mount
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  const loadProjects = async () => {
-    try {
-      const response = await getProjects();
-      setProjects(response.data);
-    } catch (error) {
-      alert('Error loading projects: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await createProject(formData);
-      setShowModal(false);
-      loadProjects(); // Reload list
-    } catch (error) {
-      alert('Error creating project: ' + error.message);
-    }
-  };
-
-  if (loading) return <div>Loading...</div>;
-
-  return (
-    <div>
-      <h1>Projects</h1>
-      <button onClick={() => setShowModal(true)}>Add Project</button>
-      
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Owner</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map(p => (
-            <tr key={p.id}>
-              <td>{p.name}</td>
-              <td>{p.owner.fullName}</td>
-              <td>{p.startDate}</td>
-              <td>{p.endDate}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {showModal && (
-        <Modal title="Create Project" onClose={() => setShowModal(false)}>
-          <form onSubmit={handleSubmit}>
-            <input 
-              placeholder="Name" 
-              onChange={e => setFormData({...formData, name: e.target.value})}
-              required 
-            />
-            {/* ... other fields ... */}
-            <button type="submit">Create</button>
-          </form>
-        </Modal>
-      )}
-    </div>
-  );
-}
-```
-
-### `src/components/Modal.jsx` - Reusable Modal
-
-```javascript
-export default function Modal({ title, children, onClose }) {
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{title}</h2>
-          <button onClick={onClose}>✕</button>
-        </div>
-        <div className="modal-body">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-```
-
----
-
-## Giải thích trong Interview
-
-### Câu hỏi: "Tại sao frontend đơn giản như vậy?"
-
-**Trả lời:**
-> "Project này tập trung vào backend với Spring Boot. Frontend chỉ là UI demo để visualize backend APIs hoạt động.
-> 
-> Backend có:
-> - Clean Architecture với 4 layers rõ ràng
-> - 18 RESTful APIs với validation đầy đủ  
-> - PostgreSQL với relationships phức tạp
-> - Exception handling toàn cục
-> - Security với Basic Auth
-> 
-> Frontend tôi giữ đơn giản vì:
-> - Không muốn over-engineering
-> - Dễ maintain và dễ giải thích code
-> - Focus showcase backend skills
-> - Thực tế fresher level không cần React Query, Redux"
-
-### Câu hỏi: "Có thể scale frontend không?"
-
-**Trả lời:**
-> "Có thể! Nếu cần scale, tôi sẽ:
-> 1. Thêm React Router cho routing
-> 2. Thêm React Query cho caching
-> 3. Thêm form validation library
-> 4. Refactor thành nhiều components nhỏ hơn
-> 
-> Nhưng hiện tại giữ đơn giản để focus vào backend architecture."
-
----
-
-## Lưu ý Development
-
-### Authentication
-- Username/password hardcode trong `.env`
-- Axios tự động thêm Basic Auth header
-- Không có login page
-
 ### Error Handling
-- `try-catch` trong mỗi API call
-- `alert()` để hiển thị lỗi (đơn giản)
-- Backend trả về error message rõ ràng
-
-### Form Validation
-- HTML5 validation (`required`, `minlength`, `type="email"`)
-- Không dùng Yup hay React Hook Form
-- Backend có validation, frontend chỉ cần basic
-
-### State Management
-- `useState` cho local state
-- `useEffect` để load data
-- Không dùng Context API, Redux
-- Re-fetch sau mỗi create/delete
-
-### Styling
-- CSS thuần trong `global.css`
-- Flexbox/Grid cho layout
-- Không dùng CSS-in-JS, Tailwind
-- Đơn giản, dễ đọc
+- Axios interceptor catches all API errors
+- Console logging for debugging
+- User-friendly error messages via alert
+- Graceful fallback on network failures
 
 ---
 
-## Scripts
+## Development
+
+### Available Scripts
 
 ```bash
-npm run dev      # Start dev server (port 5173)
+npm run dev      # Start development server (port 5173)
 npm run build    # Build for production
 npm run preview  # Preview production build
+npm run lint     # Run ESLint
 ```
+
+### State Management
+- **Local State**: `useState` for component state
+- **Side Effects**: `useEffect` for data loading
+- **No Global State**: All state managed in DashboardPage component
+
+### Styling Approach
+- **CSS Modules**: Separate CSS files per component
+- **Responsive**: Flexbox and Grid for layouts
+- **Modern**: CSS variables for theming
+- **No Framework**: Custom CSS for full control
+
+### Code Organization
+- **Single Page**: All features in DashboardPage
+- **Reusable Components**: Modal for all forms
+- **Centralized API**: All API calls in api.js
+- **Clear Separation**: Components, styles, API layer
 
 ---
 
 ## Deployment
 
-### Netlify
-1. Connect GitHub repo
+### Build Command
+```bash
+npm run build
+```
+
+### Output Directory
+```
+dist/
+```
+
+### Deployment Platforms
+
+**Netlify:**
+1. Connect GitHub repository
 2. Build command: `npm run build`
 3. Publish directory: `dist`
-4. Add environment variables
+4. Add environment variables in Settings
 
-### Vercel
+**Vercel:**
 ```bash
 npm install -g vercel
-vercel
+vercel --prod
 ```
+
+**Render:**
+1. Create new Static Site
+2. Build command: `npm run build`
+3. Publish directory: `dist`
+
+---
+
+## Environment Variables
+
+Required environment variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_API_BASE_URL` | Backend API URL | `http://localhost:8080` |
+| `VITE_API_USERNAME` | Basic Auth username | `admin` |
+| `VITE_API_PASSWORD` | Basic Auth password | `password` |
 
 ---
 
 ## Links
 
-- **Backend Repository:** [GitHub](../)
-- **Backend API (Production):** https://task-management-system-0c0p.onrender.com
-- **Backend README:** [../README.md](../README.md)
+- **Backend Repository**: [GitHub](../)
+- **Production Frontend**: [https://task-management-frontend-8brf.onrender.com/](https://task-management-frontend-8brf.onrender.com/)
+- **Production API**: [https://task-management-system-latest-97wu.onrender.com/api](https://task-management-system-latest-97wu.onrender.com/api)
+- **Backend README**: [../README.md](../README.md)
 
 ---
 
-**Last Updated:** December 25, 2025  
-**Version:** 1.0.0 (Fresher-Level Demo)  
-**Focus:** Backend (Spring Boot) > Frontend (React)
+**Last Updated:** January 4, 2026  
+**Version:** 0.7.0  
+**Tech Stack:** React 19.2 + Vite 7.2 + Axios 1.13

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.taskmanagement.entity.TaskPriority;
 import com.taskmanagement.entity.TaskStatus;
 import lombok.*;
+import com.taskmanagement.entity.Task;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -116,7 +117,7 @@ public class TaskResponse {
  * @param task Task entity
  * @return TaskResponse DTO
  */
-    public static TaskResponse from(com.taskmanagement.entity.Task task) {
+    public static TaskResponse from(Task task) {
         if (task == null) {
             return null;
         }

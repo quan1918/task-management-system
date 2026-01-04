@@ -71,6 +71,14 @@ public class ProjectService {
     public ProjectResponse createProject(CreateProjectRequest request) {
         log.info("Creating new project: name={}, owenerId={}", request.getName(), request.getOwnerId());
 
+        if (request.getOwnerId() == null) {
+            throw new IllegalArgumentException("Owner ID cannot be null");
+        }
+
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Project name cannot be null or empty");
+        }
+
         // STEP 1: Validate owner tồn tại và active
         User owner = userRepository.findById(request.getOwnerId())
             .orElseThrow(() -> {log.error("Owner not found: userId={}", request.getOwnerId());
@@ -159,8 +167,10 @@ public class ProjectService {
         
         // STEP 2: Update fields
         if (request.getName() != null) {
+            if (request.getName().trim().isEmpty()) {
+                throw new IllegalArgumentException("Project name cannot be empty");
+            }
             project.setName(request.getName());
-            log.debug("Project name updated: {}", request.getName());
         }
 
         if (request.getDescription() != null) {

@@ -80,6 +80,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
            "WHERE ta.task_id = :taskId AND u.deleted = false", 
            nativeQuery = true)
     List<Long> findAssigneeIdsByTaskId(@Param("taskId") Long taskId);
+    
     /**
      * Find tasks assigned to a specific user
      * 

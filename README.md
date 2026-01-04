@@ -1,30 +1,108 @@
-# Task Management System - Project Structure & Clean Architecture
+# Task Management System
 
-## 📋 Table of Contents
-1. [Overview](#overview)
-2. [Project Structure](#project-structure)
-3. [Clean Architecture Layers](#clean-architecture-layers)
-4. [Package Organization](#package-organization)
-5. [Technology Stack](#technology-stack)
-6. [Key Design Patterns](#key-design-patterns)
-7. [Development Workflow](#development-workflow)
-8. [Getting Started](#getting-started)
+> **Enterprise-grade task management application** built with Spring Boot 3.2 + Clean Architecture and React 19.
+
+[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://adoptopenjdk.net)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2-green.svg)](https://spring.io/projects/spring-boot)
+[![React](https://img.shields.io/badge/React-19.2-blue.svg)](https://react.dev)
 
 ---
 
-## Overview
+## 🚀 Quick Links
 
-The **Task Management System** is an enterprise-grade application built using **Spring Boot 3.2** and **Clean Architecture** principles. It provides centralized task management for teams with support for task assignment, project organization, and comprehensive API endpoints.
+**Live Applications:**
+- 🌐 **Frontend:** [https://task-management-frontend-8brf.onrender.com/](https://task-management-frontend-8brf.onrender.com/)
 
-### Core Characteristics
-- **Architecture:** Clean Architecture with clear separation of concerns
-- **Framework:** Spring Boot 3.2 with Java 17
-- **Database:** PostgreSQL with JPA/Hibernate ORM
-- **Security:** Spring Security with Basic Authentication (JWT implementation ready for Phase 2)
-- **API:** RESTful API with comprehensive CRUD operations
-- **Current Features:** Task CRUD, Multi-User Assignment (N:N), Project-Task relationships
-- **Status:** v0.6.0 - MVP Phase with Hibernate 6.x workarounds implemented
-- **Monitoring:** Spring Boot Actuator for health checks
+**API Testing:**
+- [![Run in Postman](https://run.pstmn.io/button.svg)](https://www.postman.com/api-team-5375/workspace/api-workspace/request/37783257-eb670533-dc90-408b-ad08-732c7d8390e1?action=share&creator=37783257)
+
+---
+
+## 🎯 What is This?
+
+A full-stack task management system for teams with:
+- **Clean Architecture** - 4-layer backend (Controllers → Services → Repositories → Entities)
+- **RESTful API** - Comprehensive CRUD operations for tasks, users, and projects
+- **React Frontend** - Modern component-based architecture
+- **PostgreSQL** - Relational database with JPA/Hibernate ORM
+- **Production-Ready** - Deployed on Render with health monitoring
+
+**Use Cases:**
+- Team task tracking and assignment
+- Project management with multiple projects
+- User management with soft delete support
+- Real-time task status updates
+- Responsive UI for mobile/desktop
+
+---
+
+## ✨ Core Features
+
+### ✅ Implemented (v0.7.0)
+
+**Backend:**
+- ✅ Task CRUD with Many-to-Many assignees
+- ✅ User management with soft delete
+- ✅ Project management with archive/reactivate
+- ✅ RESTful API with validation and error handling
+- ✅ Basic Authentication (JWT planned for v1.0.0)
+- ✅ Native SQL workarounds for Hibernate @Where filter issues
+
+**Frontend:**
+- ✅ Component-based React 19 architecture
+- ✅ Real-time search and status filtering
+- ✅ Inline task status updates
+- ✅ Responsive grid layout
+- ✅ Member ID badges with gradient styling
+
+### 🔲 Planned
+
+- 🔲 Backend task filtering API (v0.8.0)
+- 🔲 JWT authentication & RBAC (v1.0.0)
+- 🔲 Event-driven notifications (v0.9.0)
+- 🔲 File attachments & comments
+- 🔲 WebSocket for real-time updates
+- 🔲 Priority filter in frontend UI
+
+---
+
+## 🏗️ Architecture Overview
+
+**High-Level Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    React Frontend                        │
+│         (React 19 + Vite + Axios)                        │
+└────────────────────┬────────────────────────────────────┘
+                     │ HTTP/JSON (Basic Auth)
+                     │
+┌────────────────────▼────────────────────────────────────┐
+│                    REST API Layer                        │
+│         (Controllers - TaskController, etc.)             │
+└────────────────────┬────────────────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────────────────┐
+│                  Business Logic Layer                    │
+│          (Services - TaskService, etc.)                  │
+└────────────────────┬────────────────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────────────────┐
+│                  Data Access Layer                       │
+│        (Repositories - TaskRepository, etc.)             │
+└────────────────────┬────────────────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────────────────┐
+│                  PostgreSQL Database                     │
+│   (tasks, users, projects, task_assignees, etc.)        │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Dependency Flow:** Controllers → Services → Repositories → Entities (Clean Architecture)
+
+📖 **For detailed architecture explanation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+
+---
 
 ### Currently Implemented Features
 ✅ **Task Management:**
@@ -32,6 +110,23 @@ The **Task Management System** is an enterprise-grade application built using **
   - Get task by ID with full details (assignees, project)
   - Update tasks (title, description, status, priority, assignees)
   - Delete tasks (hard delete with cascade to comments/attachments)
+
+✅ **User Management:**
+  - Create new users (POST /api/users)
+  - Get all users (GET /api/users)
+  - Get user by ID (GET /api/users/{id})
+  - Update user details (PUT /api/users/{id})
+  - Soft delete users (DELETE /api/users/{id})
+  - Restore deleted users (POST /api/users/{id}/restore)
+
+✅ **Project Management:**
+  - Create new projects (POST /api/projects)
+  - Get all active projects (GET /api/projects)
+  - Get project by ID (GET /api/projects/{id})
+  - Update project details (PUT /api/projects/{id})
+  - Archive projects (DELETE /api/projects/{id})
+  - Reactivate projects (POST /api/projects/{id}/reactivate)
+  - Get project tasks (GET /api/projects/{id}/tasks)
   
 ✅ **Relationships:**
   - Task → User (Many-to-Many via task_assignees junction table)
@@ -44,45 +139,181 @@ The **Task Management System** is an enterprise-grade application built using **
   - JPA entities with validation
   - Lazy loading for performance
 
+✅ **Frontend (v0.7.0):**
+  - React 19 with Vite build system
+  - Component-based architecture
+  - Search & filter functionality within task panel
+  - Real-time task status updates
+  - Responsive design for mobile/desktop
+
 ### Planned Features (Not Yet Implemented)
-🔲 User Management API (GET /api/users)
-🔲 Project Management API
-🔲 Task filtering by assignee/project (GET /api/tasks?assigneeId=1)
-🔲 JWT Authentication & Authorization
-🔲 Remove assignee from task (allow null assignee)
-🔲 Soft delete support
-🔲 Task comments API
-🔲 File attachments API
-🔲 Event-driven notifications
+🔲 Backend task filtering API (GET /api/tasks?assigneeId=1&status=PENDING)
+🔲 JWT Authentication & Authorization (currently using Basic Auth)
+🔲 Task comments CRUD API
+🔲 File attachments upload/download API
+🔲 Event-driven notifications system
+🔲 WebSocket for real-time updates
+🔲 Priority filter in frontend UI
+🔲 Email notification integration
+🔲 Task activity history/audit log
+🔲 Advanced search with Elasticsearch
+🔲 API rate limiting
+🔲 Caching layer with Redis
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Clean Architecture layers, design patterns, dependency rules, architectural decision records |
+| [API.md](docs/API.md) | Complete REST API reference with endpoints, request/response examples, authentication, error handling |
+| [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | Entity relationships, table schemas, indexing strategy, JPA mappings, migration notes |
+| [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) | Critical bugs (Hibernate @Where filter issues), workarounds, root cause analysis, migration plans |
+| [FRONTEND_ARCHITECTURE.md](docs/FRONTEND_ARCHITECTURE.md) | React component hierarchy, performance optimization patterns, state management, rendering strategy |
 
 ---
 
-## Project Structure
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Java 17+** (JDK)
+- **Maven 3.x**
+- **PostgreSQL 15+**
+- **Node.js 18+** & **npm/yarn** (for frontend)
+
+### Backend Setup
+
+1. **Clone repository:**
+   ```bash
+   git clone https://github.com/your-repo/task-management-system.git
+   cd task-management-system
+   ```
+
+2. **Configure database** (`src/main/resources/application.yml`):
+   ```yaml
+   spring:
+     datasource:
+       url: jdbc:postgresql://localhost:5432/task_db
+       username: your_username
+       password: your_password
+   ```
+
+3. **Build and run:**
+   ```bash
+   mvn clean install
+   mvn spring-boot:run
+   ```
+
+4. **Verify:** http://localhost:8080/actuator/health
+
+### Frontend Setup
+
+1. **Navigate to frontend:**
+   ```bash
+   cd frontend
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Configure API** (`src/api.js`):
+   ```javascript
+   const API_BASE_URL = 'http://localhost:8080/api';
+   ```
+
+4. **Start development server:**
+   ```bash
+   npm run dev
+   ```
+
+5. **Access:** http://localhost:5173
+
+📖 **For detailed setup instructions, see [docs/ARCHITECTURE.md#getting-started](docs/ARCHITECTURE.md#getting-started)**
+
+---
+
+## 🛠️ Technology Stack
+
+### Backend
+- **Java 17** - Modern Java features (Records, Pattern Matching)
+- **Spring Boot 3.2** - Application framework
+- **Spring Data JPA** - Database abstraction (Hibernate 6.x)
+- **Spring Security 6.x** - Basic Auth (JWT planned v1.0.0)
+- **PostgreSQL 15+** - Relational database
+- **Maven 3.x** - Build automation
+- **Lombok** - Boilerplate reduction
+- **JUnit 5 + Mockito** - Testing framework
+
+### Frontend
+- **React 19.2** - UI library with concurrent features
+- **Vite 7.2** - Build tool and dev server
+- **Axios 1.13** - HTTP client
+- **CSS Modules** - Component-scoped styling
+
+### DevOps
+- **Render** - Cloud hosting platform
+- **Docker** - Containerization (Dockerfile included)
+- **Spring Boot Actuator** - Health monitoring
+
+---
+
+## 📂 Project Structure
 
 ```
 java_project/                                 # Project root
+│
+├── frontend/                                  # ✅ React Frontend Application
+│   ├── src/
+│   │   ├── components/                        # Shared Components
+│   │   │   └── Modal.jsx                      # Modal dialog component
+│   │   ├── pages/                             # Page Components
+│   │   │   ├── DashboardPage.jsx              # Main dashboard container
+│   │   ├── styles/                            # CSS Stylesheets
+│   │   │   ├── DashboardPage.css              # Dashboard styling
+│   │   │   └── Modal.css                      # Modal styling
+│   │   ├── assets/                            # Static assets
+│   │   ├── api.js                             # API service layer
+│   │   ├── App.jsx                            # Root component
+│   │   ├── App.css                            # App styling
+│   │   ├── index.css                          # Global styles
+│   │   └── main.jsx                           # React entry point
+│   ├── public/                                # Static assets
+│   ├── index.html                             # HTML entry point
+│   ├── package.json                           # NPM dependencies
+│   ├── vite.config.js                         # Vite configuration
+│   └── eslint.config.js                       # ESLint configuration
 │
 ├── src/
 │   ├── main/
 │   │   ├── java/com/taskmanagement/          # Source code (Clean Architecture)
 │   │   │   │
+│   │   │   ├── annotation/                   # ✅ Custom Annotations
+│   │   │   │   └── Planned.java              # @Planned annotation for future features
+│   │   │   │
 │   │   │   ├── api/                          # ✅ Layer 1: REST Controllers
 │   │   │   │   ├── TaskController.java       # Task CRUD endpoints
+│   │   │   │   ├── UserController.java       # User CRUD endpoints
+│   │   │   │   ├── ProjectController.java    # Project CRUD endpoints
 │   │   │   │   └── README.md                 # API documentation
 │   │   │   │
 │   │   │   ├── service/                      # ✅ Layer 2: Business Logic
 │   │   │   │   ├── TaskService.java          # Task business logic
+│   │   │   │   ├── UserService.java          # User management logic
+│   │   │   │   ├── ProjectService.java       # Project management logic
 │   │   │   │   └── README.md                 # Service layer documentation
 │   │   │   │
 │   │   │   ├── repository/                   # ✅ Layer 3: Data Access (JPA)
-│   │   │   │   ├── TaskRepository.java       # Task queries
-│   │   │   │   ├── UserRepository.java       # User validation
-│   │   │   │   ├── ProjectRepository.java    # Project validation
+│   │   │   │   ├── TaskRepository.java       # Task queries with native SQL
+│   │   │   │   ├── UserRepository.java       # User validation queries
+│   │   │   │   ├── ProjectRepository.java    # Project validation queries
+│   │   │   │   ├── CommentRepository.java    # Comment queries (defined)
 │   │   │   │   └── README.md                 # Repository documentation
 │   │   │   │
 │   │   │   ├── entity/                       # ✅ Layer 4: Domain Models
 │   │   │   │   ├── Task.java                 # Task entity with relationships
-│   │   │   │   ├── User.java                 # User entity
+│   │   │   │   ├── User.java                 # User entity with soft delete
 │   │   │   │   ├── Project.java              # Project entity
 │   │   │   │   ├── Comment.java              # Comment entity (cascade delete)
 │   │   │   │   ├── Attachment.java           # Attachment entity (cascade delete)
@@ -93,9 +324,15 @@ java_project/                                 # Project root
 │   │   │   ├── dto/                          # ✅ Data Transfer Objects
 │   │   │   │   ├── request/
 │   │   │   │   │   ├── CreateTaskRequest.java  # POST /api/tasks
-│   │   │   │   │   └── UpdateTaskRequest.java  # PUT /api/tasks/{id}
+│   │   │   │   │   ├── UpdateTaskRequest.java  # PUT /api/tasks/{id}
+│   │   │   │   │   ├── CreateUserRequest.java  # POST /api/users
+│   │   │   │   │   ├── UpdateUserRequest.java  # PUT /api/users/{id}
+│   │   │   │   │   ├── CreateProjectRequest.java # POST /api/projects
+│   │   │   │   │   └── UpdateProjectRequest.java # PUT /api/projects/{id}
 │   │   │   │   ├── response/
-│   │   │   │   │   └── TaskResponse.java       # Task response DTO
+│   │   │   │   │   ├── TaskResponse.java       # Task response DTO
+│   │   │   │   │   ├── UserResponse.java       # User response DTO
+│   │   │   │   │   └── ProjectResponse.java    # Project response DTO
 │   │   │   │   └── README.md                   # DTO documentation
 │   │   │   │
 │   │   │   ├── exception/                    # ✅ Error Handling
@@ -104,20 +341,22 @@ java_project/                                 # Project root
 │   │   │   │   ├── TaskNotFoundException.java   # 404 for tasks
 │   │   │   │   ├── UserNotFoundException.java   # 404 for users
 │   │   │   │   ├── ProjectNotFoundException.java # 404 for projects
+│   │   │   │   ├── BusinessRuleException.java   # Business rule violations
+│   │   │   │   ├── DuplicateResourceException.java # Duplicate resource errors
 │   │   │   │   └── README.md                    # Exception documentation
 │   │   │   │
 │   │   │   ├── config/                       # ✅ Configuration
-│   │   │   │   ├── SecurityConfig.java       # Basic Auth (hardcoded users)
+│   │   │   │   ├── SecurityConfig.java       # Basic Auth configuration
 │   │   │   │   └── README.md                 # Security configuration docs
 │   │   │   │
-│   │   │   ├── security/                     # 🔲 Placeholder (JWT - not implemented)
-│   │   │   │   └── README.md                 # JWT implementation plan
+│   │   │   ├── security/                     # 📋 Planned (v1.0.0)
+│   │   │   │   └── package-info.java         # JWT authentication documentation
 │   │   │   │
-│   │   │   ├── util/                         # 🔲 Placeholder (no utilities yet)
-│   │   │   │   └── README.md                 # Utility plan
+│   │   │   ├── util/                         # 📋 Planned (v0.8.0)
+│   │   │   │   └── package-info.java         # Utility classes documentation
 │   │   │   │
-│   │   │   ├── event/                        # 🔲 Placeholder (no events yet)
-│   │   │   │   └── README.md                 # Event-driven architecture plan
+│   │   │   ├── event/                        # 📋 Planned (v0.9.0)
+│   │   │   │   └── package-info.java         # Event-driven architecture documentation
 │   │   │   │
 │   │   │   └── TaskManagementApplication.java  # Main Spring Boot entry point
 │   │   │
@@ -125,8 +364,20 @@ java_project/                                 # Project root
 │   │       ├── application.yml               # Spring Boot configuration
 │   │       └── APPLICATION_YML_CONFIGURATION.md  # Configuration guide
 │   │
-│   └── test/                                 # 🔲 Tests not yet implemented
+│   └── test/                                 # ✅ Tests Implemented
 │       └── java/com/taskmanagement/
+│           ├── api/                          # Controller Tests
+│           │   ├── TaskControllerTest.java
+│           │   ├── UserControllerTest.java
+│           │   └── ProjectControllerTest.java
+│           ├── service/                      # Service Tests
+│           │   ├── TaskServiceTest.java
+│           │   ├── UserServiceTest.java
+│           │   └── ProjectServiceTest.java
+│           ├── util/                         # Test Utilities
+│           │   ├── TestDataBuilder.java     # Test data factory
+│           │   └── TestConstants.java       # Test constants
+│           └── TaskManagementApplicationTests.java # Application context test
 │
 ├── target/                                   # Maven build output (generated)
 │   └── classes/                              # Compiled .class files
@@ -144,114 +395,74 @@ java_project/                                 # Project root
 
 ### Legend
 - ✅ **Implemented** - Code exists and functional
-- 🔲 **Placeholder** - Folder/file exists but no implementation yet
+- � **Planned** - Package exists with package-info.java documentation for future implementation
 - ⭐ **Documentation** - README or configuration files
 
-### What's Actually Implemented (v0.6.0)
+---
 
-**Backend Code:**
-- Task CRUD operations with Many-to-Many assignees
-- Native SQL workarounds for Hibernate @Where filter issues
-- Entity relationships (Task ↔ Users N:N, Task ↔ Project N:1, Comments/Attachments 1:N)
-- Request validation with Bean Validation
-- Exception handling with consistent error responses
-- Basic Authentication with hardcoded users
-- Enhanced SQL logging for debugging
+## 📝 Version History
 
-**Recent Bug Fixes:**
-- Fixed empty assignees issue in GET /api/tasks/{id}
-- Implemented 3-step workaround for @Where filter + lazy loading
-- Added native query methods to bypass Hibernate filtering
-
-**Not Yet Implemented:**
-- User/Project management APIs
-- JWT authentication
-- Task filtering and pagination
-- Utility classes
-- Event system
-- Unit/integration tests
-- Migration from @Where to @FilterDef
+| Version | Date | Features |
+|---------|------|----------|
+| v0.7.0 | 2026-01-04 | Frontend UI improvements and component refactoring |
+| v0.6.0 | 2026-01-03 | Project archive/reactivate functionality |
+| v0.5.0 | 2026-01-02 | User soft delete with restore capability |
+| v0.4.0 | 2026-01-01 | Many-to-Many task assignment with native SQL workaround |
+| v0.3.0 | 2025-12-30 | Project CRUD operations |
+| v0.2.0 | 2025-12-29 | User management and Basic Auth |
+| v0.1.0 | 2025-12-28 | Initial task CRUD implementation |
 
 ---
 
-## Clean Architecture Layers
-
-Clean Architecture organizes code into concentric layers, with **business logic at the center** and **external dependencies at the edges**.
-
-### Layer 1: Controllers (API / Presentation Layer)
-**Location:** `api/`
-
-**Responsibility:**
-- Accept HTTP requests from clients
-- Validate request parameters
-- Call appropriate services
-- Return HTTP responses with proper status codes
-- Handle request/response serialization (JSON)
-
-**Key Components:**
-- `TaskController` - Task CRUD operations
-- `UserController` - User management
-- `AuthController` - Authentication (login, register, refresh token)
-- `ProjectController` - Project/Team management
-- `CommentController` - Task comments
-- `NotificationController` - User notifications
-
-**Dependencies:** Services, DTOs
-**Independent Of:** Database, external APIs (loosely coupled)
-
-**Example Request Flow:**
-```
-HTTP Request
-    ↓
-@PostMapping("/tasks")
-    ↓
-validateRequest()
-    ↓
-taskService.createTask()
-    ↓
-HTTP Response (201 Created)
-```
+**Documentation last updated:** January 4, 2026  
+**Project Status:** Active Development (MVP Phase Complete)
 
 ---
 
-### Layer 2: Services (Business Logic Layer)
-**Location:** `service/`
+## 💡 Key Highlights
 
-**Responsibility:**
-- Implement core business logic
-- Orchestrate repositories
-- Handle transactions (@Transactional)
-- Publish domain events
-- Implement validation rules
-- Calculate derived data
-
-**Key Components:**
-- `TaskService` - Task creation, assignment, status updates
-- `UserService` - User management, RBAC enforcement
-- `ProjectService` - Project/Team operations
-- `CommentService` - Comment management
-- `NotificationService` - Send notifications
-- `AuditService` - Audit trail logging
-- `AuthService` - Authentication logic
-
-**Dependencies:** Repositories, Events, Utilities
-**Independent Of:** HTTP (controllers are independent of this layer structure)
-
-**Example Business Logic:**
-```
-createTask(CreateTaskRequest) {
-  1. Validate request (business rules)
-  2. Create Task entity
-  3. Assign to user (check user permissions)
-  4. Save via repository
-  5. Publish TaskCreatedEvent
-  6. Return success response
-}
-```
+- ✅ **Clean 4-Layer Architecture** - Controllers → Services → Repositories → Entities
+- ✅ **Production-Ready Backend** - Spring Boot 3.2 + PostgreSQL with health monitoring
+- ✅ **Modern React Frontend** - Component-based architecture with React 19
+- ✅ **Comprehensive Testing** - 42 unit tests with JaCoCo coverage reports
+- ✅ **Real-World Problem Solving** - Documented Hibernate issues with working solutions
+- ✅ **Complete API Documentation** - REST endpoints with request/response examples
+- ✅ **Interview-Ready Docs** - Architecture decisions and trade-offs explained
 
 ---
 
-### Layer 3: Repositories (Data Access Layer)
+## 🎬 Next Steps
+
+**For Users:**
+1. Follow [Quick Start](#-quick-start) to run locally
+2. Explore [API.md](docs/API.md) for API endpoints
+3. Check [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for current limitations
+
+**For Developers:**
+1. Read [ARCHITECTURE.md](docs/ARCHITECTURE.md) for design principles
+2. Review [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) for data model
+3. Study [FRONTEND_ARCHITECTURE.md](docs/FRONTEND_ARCHITECTURE.md) for React patterns
+
+**For Interviewers:**
+- Review [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for debugging process
+- Check [ARCHITECTURE.md](docs/ARCHITECTURE.md) for design decisions
+
+---
+
+## Contact & Support
+
+For questions, issues, or suggestions:
+- Create an issue in the repository
+- Review documentation files in [docs/](docs/) folder
+- Check [BUSINESS_OVERVIEW.md](BUSINESS_OVERVIEW.md) for business requirements
+- See [POM_CONFIGURATION.md](POM_CONFIGURATION.md) for Maven setup details
+
+---
+
+**Last Updated:** January 4, 2026  
+**Version:** v0.7.0 - Frontend UI Improvements  
+**Status:** MVP Phase - Core Task Management + Optimized UI  
+**Next Milestone:** Backend Task Filtering API & Priority Filter in Frontend (v0.8.0)
 **Location:** `repository/`
 
 **Responsibility:**
@@ -483,16 +694,17 @@ Send notification to project members
 
 ```
 com.taskmanagement
+├── annotation.*        # Custom annotations (@Planned)
 ├── api.*               # REST Controllers
 ├── service.*           # Business logic services
 ├── repository.*        # Data access interfaces
 ├── entity.*            # JPA domain models
 ├── dto.*               # Request/Response DTOs
 ├── config.*            # Configuration classes
-├── security.*          # JWT and security logic
+├── security.*          # JWT and security logic (planned)
 ├── exception.*         # Exception handling
-├── event.*             # Event-driven components
-└── util.*              # Utilities and constants
+├── event.*             # Event-driven components (planned)
+└── util.*              # Utilities and constants (planned)
 ```
 
 **Naming Conventions:**
@@ -548,6 +760,19 @@ com.taskmanagement
 - **RabbitMQ** - Message queuing (commented in pom.xml)
 - **Redis** - In-memory caching (commented in pom.xml)
 - **Kafka** - Event streaming (commented in pom.xml)
+
+### Frontend Stack
+- **React 19.2.0** - Modern UI library with concurrent features
+- **Vite 7.2.4** - Lightning-fast build tool and dev server
+- **Axios 1.13.2** - Promise-based HTTP client
+- **ESLint 9.39.1** - Code quality and style checking
+
+### Frontend Architecture Patterns
+- **Component Composition** - Reusable UI components
+- **useCallback** - Memoize functions for stable references
+- **useMemo** - Memoize expensive computations
+- **Controlled Components** - Form state management
+- **Separation of Concerns** - Components, Pages, Styles, API layer
 
 ---
 
@@ -838,36 +1063,6 @@ A complete Postman collection is available for testing all API endpoints.
 - ✅ Sample requests with test data
 - ✅ Authentication examples (Basic Auth)
 
-### Getting Started with Postman
-
-1. **Import Collection**
-   - Click the "Run in Postman" button above
-   - Or manually import from: [Postman Collection Link](https://www.postman.com/api-team-5375/workspace/api-workspace/request/37783257-eb670533-dc90-408b-ad08-732c7d8390e1?action=share&creator=37783257)
-
-2. **Configure Environment**
-   
-   **Local Development:**
-   ```
-   BASE_URL: http://localhost:8080
-   USERNAME: admin
-   PASSWORD: admin
-   ```
-   
-   **Production:**
-   ```
-   BASE_URL: https://task-management-system-0c0p.onrender.com
-   USERNAME: admin
-   PASSWORD: admin
-   ```
-
-3. **Authentication**
-   - Type: Basic Auth
-   - Default credentials: `admin:admin`
-   - Credentials are pre-configured in collection
-
-📖 **Detailed testing guide:** See [docs/api-testing.md](docs/api-testing.md) (coming soon)
-
----
 
 ### Test API Endpoints (Manual)
 
@@ -1042,7 +1237,6 @@ Examples:
 
 ### Project Documentation
 - `BUSINESS_OVERVIEW.md` - Business requirements and features
-- `POM_CONFIGURATION.md` - Detailed pom.xml explanation
 - `APPLICATION_YML_CONFIGURATION.md` - Configuration profiles
 - `ARCHITECTURE.md` - Deep dive into architecture decisions
 
@@ -1074,12 +1268,6 @@ Examples:
 
 All endpoints require **Basic Authentication** (except `/actuator/health`).
 
-**Default Credentials:**
-- Username: `admin`
-- Password: `admin`
-- Authorization Header: `Basic YWRtaW46YWRtaW4=`
-
----
 
 ### Task Management APIs
 
@@ -1331,6 +1519,28 @@ curl -X GET https://task-management-system-0c0p.onrender.com/actuator/health
 
 ## Version History
 
+**v0.7.0 (2026-01-04)** ⭐ Current Version
+- ✅ **Frontend UI Improvements:**
+  - Separated components: ProjectList, TaskList, TaskFilters
+  - Component-based architecture
+- ✅ **Frontend Features:**
+  - Real-time search within tasks (title/description)
+  - Status filter dropdown
+  - Inline task status updates
+  - Member ID badges with gradient styling
+  - Responsive grid layout
+- ✅ **Code Quality:**
+  - Clear separation of concerns
+  - Well-documented with comments
+  - CSS improvements for better readability
+
+**v0.6.0 (2025-12-20)**
+- ✅ Fixed empty assignees issue in GET /api/tasks/{id}
+- ✅ Implemented 3-step workaround for Hibernate @Where filter
+- ✅ Added native query methods to bypass Hibernate filtering
+- ✅ Enhanced SQL logging for debugging
+- ✅ Many-to-Many assignees fully functional
+
 **v0.5.0 (2025-12-14)**
 - ✅ Task CRUD operations implemented
 - ✅ Task-User-Project relationships working
@@ -1389,9 +1599,10 @@ curl -X GET https://task-management-system-0c0p.onrender.com/actuator/health
    - Solution: Implement proper cascade rules or bulk unassign before deletion
 
 ### Planned Improvements
-- [ ] Implement task filtering API (GET /api/tasks?assigneeId=1&projectId=2)
-- [ ] Add User management API (GET/POST /api/users)
-- [ ] Add Project management API
+- [ ] Implement backend task filtering API (GET /api/tasks?assigneeId=1&projectId=2&status=PENDING)
+- [ ] Add Priority filter in frontend UI
+- [ ] Add WebSocket for real-time task updates
+- [ ] Add Project management API (fully implemented)
 - [ ] Support removing assignee from tasks
 - [ ] Implement soft delete for tasks
 - [ ] Add pagination and sorting
@@ -1399,25 +1610,95 @@ curl -X GET https://task-management-system-0c0p.onrender.com/actuator/health
 - [ ] Add role-based access control (RBAC)
 - [ ] Event-driven notifications
 - [ ] File attachment upload API
+- [ ] Task comments API
+- [ ] Unit and integration tests
+- [ ] API rate limiting
+- [ ] Caching layer (Redis)
+- [ ] Migration from @Where to @FilterDef
 
 ---
 
-## License
+## Frontend Development Guide
 
-[Specify your license here]
+### Running Frontend Locally
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies (first time only)
+npm install
+
+# Run development server
+npm run dev
+
+# Open browser at http://localhost:5173
+```
+
+### Building for Production
+
+```bash
+# Build optimized production bundle
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+### Frontend Architecture Explained
+
+**Component Structure:**
+```
+App.jsx (Root)
+└── DashboardPage (Parent Container in pages/)
+    ├── ProjectList (in pages/)
+    │   └── Handles project selection
+    ├── TaskList (in pages/)
+    │   ├── TaskFilters (in pages/)
+    │   │   ├── Search Input
+    │   │   └── Status Dropdown
+    │   └── Task Cards
+    ├── Modal (Shared in components/)
+    └── Team Members Section
+```
+
+**State Management:**
+- Filter state lives inside TaskList component
+- Filters don't reset when switching projects
+- Parent (DashboardPage) manages global state (projects, tasks, users)
+- Children receive props via props drilling
 
 ---
 
-## Contact & Support
+## Performance Optimization Tips
 
+### Backend
+1. **Use indexes** on frequently queried columns
+2. **Lazy loading** for relationships (avoid N+1 queries)
+3. **Native queries** when Hibernate filters cause issues
+4. **Connection pooling** with HikariCP (already configured)
+5. **@Transactional** for database consistency
+
+### Frontend
+1. **React.memo** for expensive components
+2. **useCallback** for event handlers passed as props
+3. **useMemo** for expensive calculations (filtering, sorting)
+4. **Debounce** search input (wait 300ms before filtering)
+5. **Virtualization** for long lists (100+ items)
+6. **Code splitting** with React.lazy() for routes
+useCallback** for event handlers passed as props
+2. **useMemo** for expensive calculations (filtering, sorting)
+3. **Debounce** search input (wait 300ms before filtering)
+4. **Virtualization** for long lists (100+ items)
+5
 For questions, issues, or suggestions:
 - Create an issue in the repository
 - Review documentation in package README files
-- Check [BUSINESS_OVERVIEW.md](BUSINESS_OVERVIEW.md "BUSINESS_OVERVIEW.md") for requirements
+- Check [BUSINESS_OVERVIEW.md](BUSINESS_OVERVIEW.md) for requirements
 
 ---
 
-**Last Updated:** December 21, 2025  
-**Version:** v0.6.0 - Many-to-Many Assignees with @Where Filter Workaround  
-**Status:** MVP Phase - Core Task Management Operational + Bug Fixes  
-**Next Milestone:** Task Filtering & User Management APIs
+**Last Updated:** January 4, 2026  
+**Version:** v0.7.0 - Frontend Performance Optimizations with React.memo  
+**Status:** MVP Phase - Core Task Management + Optimized UI  
+**Next Milestone:** Backend Task Filtering API & Priority Filter in Frontend

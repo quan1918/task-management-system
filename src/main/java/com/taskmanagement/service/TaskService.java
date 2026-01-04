@@ -147,7 +147,7 @@ public class TaskService {
             .notes(request.getNotes())
             .assignees(assignees)
             .project(project)
-            .status(TaskStatus.PENDING) // Mặc định trạng thái là PENDING
+            .status(TaskStatus.PENDING)
             .build();
 
         log.debug("Task entity created: {}", task);
@@ -251,12 +251,6 @@ public class TaskService {
      * @throws UserNotFoundException nếu assignee mới không tồn tại
      * @throws ProjectNotFoundException nếu project mới không tồn tại/inactive
      * 
-     * Example Usage:
-     * UpdateTaskRequest request = UpdateTaskRequest.builder()
-     *     .status(TaskStatus.IN_PROGRESS)
-     *     .priority(TaskPriority.HIGH)
-     *     .build();
-     * TaskResponse updated = taskService.updateTask(123L, request);
      */
     public TaskResponse updateTask(Long id, UpdateTaskRequest request) {
         log.info("Updateing task: id={}", id);

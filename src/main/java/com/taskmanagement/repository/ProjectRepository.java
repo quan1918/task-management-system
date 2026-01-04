@@ -56,8 +56,7 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     List<Project> findAllByActiveTrue();
     
-// Các phương thức khác có thể được thêm trong tương lai:
-// List<Project> findByOwnerId(Long ownerId);
+    List<Project> findByOwnerId(Long ownerId);
 // List<Project> findByActiveTrue();
 // List<Project> findByNameContainingIgnoreCase(String name);
 

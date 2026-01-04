@@ -34,6 +34,12 @@ function DashboardPage() {
         loadAllData();
     }, []);
 
+    useEffect(() => {
+        if (projects.length > 0 && selectedProjectId === null) {
+            setSelectedProjectId(projects[0].id);
+        }
+    }, [projects]);
+
     useEffect(() => { 
         if (selectedProjectId) {
             loadTasks(selectedProjectId);
@@ -55,7 +61,17 @@ function DashboardPage() {
     const loadProjects = async () => {
         const result = await getProjects();
         if (result.success) {
+            const projectsData = result.data;
             setProjects(result.data);
+
+            const counts = {};
+            for (const project of projectsData) {
+                const taskResult = await getProjectTasks(project.id);
+                if (taskResult.success) {
+                    counts[project.id] = taskResult.data?.length || 0;
+                }
+            }
+            setProjectTaskCounts(counts);
         }
     };
 
@@ -96,7 +112,10 @@ function DashboardPage() {
         if (result.success) {
             setIsProjectModalOpen(false);
             setProjectForm({ name: '', description: '', ownerId: '', startDate: '', endDate: '' });
-            loadProjects();
+            await loadProjects();
+            if (result.data?.id) {
+                setSelectedProjectId(result.data.id);
+            }
         } else {
             alert(result.error);
         }
@@ -131,9 +150,7 @@ function DashboardPage() {
             resetTaskForm();
             if (selectedProjectId) {
                 await loadTasks(selectedProjectId);
-            } else {
-                await loadAllTasks();
-            }
+            } 
         } else {
             alert(result.error);
         }
@@ -160,6 +177,14 @@ function DashboardPage() {
         if (!result.success) {
             alert(result.error);
             setTasks(previousTasks);
+        } else {
+        // Update task count
+            if (selectedProjectId) {
+                setProjectTaskCounts(prev => ({
+                    ...prev,
+                    [selectedProjectId]: (prev[selectedProjectId] || 1) - 1
+                }));
+            }
         }
     };
 
@@ -193,7 +218,15 @@ function DashboardPage() {
     };
 
     const resetTaskForm = () => {
-        setTaskForm({ title: '', description: '', projectId: '', status: 'PENDING', priority: 'MEDIUM', dueDate: '', assigneeIds: '' });
+        setTaskForm({ 
+            title: '', 
+            description: '', 
+            projectId: selectedProjectId?.toString() || '', 
+            status: 'PENDING', 
+            priority: 'MEDIUM', 
+            dueDate: '', 
+            assigneeIds: '' 
+        });
         setEditingTask(null);
     };
 
@@ -219,28 +252,6 @@ function DashboardPage() {
 
             {!loading && (
                 <div className="dashboard-content">
-                    {/* Search Bar - Full Width */}
-                    <div className="search-bar">
-                        <input
-                            type="text"
-                            placeholder="Search tasks..."
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            className="search-input"
-                        />
-                        <select
-                            value={filterStatus}
-                            onChange={(e) => setFilterStatus(e.target.value)}
-                            className="filter-select"
-                        >
-                            <option value="ALL">All Statuses</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="IN_PROGRESS">In Progress</option>
-                            <option value="COMPLETED">Completed</option>
-                            <option value="BLOCKED">Blocked</option>
-                        </select>
-                    </div>
-
                     {/* NEW: Main Grid Container - Projects + Tasks in Same Row */}
                     <div className="main-grid">
                         {/* LEFT: Projects Panel (1/3 width) */}
@@ -248,19 +259,7 @@ function DashboardPage() {
                             <div className="section-header">
                                 <h2>Projects</h2>
                             </div>
-
                             <div className="projects-list">
-                                {/* All Projects */}
-                                <div 
-                                    className={`project-item ${selectedProjectId === null ? 'active' : ''}`}
-                                    onClick={() => setSelectedProjectId(null)}
-                                >
-                                    <div className="project-info">
-                                        <span className="project-name">All Projects</span>
-                                    </div>
-                                    <span className="project-count">—</span>
-                                </div>
-
                                 {/* Project list */}
                                 {projects.map(project => (
                                     <div
@@ -274,8 +273,8 @@ function DashboardPage() {
                                         </div>
                                         <span className="project-count">
                                             {projectTaskCounts[project.id] !== undefined
-                                                ? `${projectTaskCounts[project.id]} tasks`
-                                                : '—'}
+                                                ? `${projectTaskCounts[project.id]} task${projectTaskCounts[project.id] !== 1 ? 's' : ''}`
+                                                : 'Loading...'}
                                         </span>
                                     </div>
                                 ))}
@@ -294,6 +293,26 @@ function DashboardPage() {
                             <div className="section-header">
                                 <h2>Tasks</h2>
                                 <span className="section-count">{filteredTasks.length} tasks</span>
+                            </div>
+                            <div className="search-bar">
+                                <input
+                                    type="text"
+                                    placeholder="Search tasks..."
+                                    value={searchText}
+                                    onChange={(e) => setSearchText(e.target.value)}
+                                    className="search-input"
+                                />
+                                <select
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    className="filter-select"
+                                >
+                                    <option value="ALL">All Statuses</option>
+                                    <option value="PENDING">Pending</option>
+                                    <option value="IN_PROGRESS">In Progress</option>
+                                    <option value="COMPLETED">Completed</option>
+                                    <option value="BLOCKED">Blocked</option>
+                                </select>
                             </div>
 
                             {filteredTasks.length === 0 ? (
@@ -384,13 +403,15 @@ function DashboardPage() {
                                         {user.fullName?.charAt(0)?.toUpperCase() || 'U'}
                                     </div>
                                     <div className="member-info">
+                                        <div className="member-id-badge">
+                                            ID: {user.id}
+                                        </div>
                                         <h3 className="member-name">{user.fullName}</h3>
                                         <p className="member-email">{user.email}</p>
                                         <div className="member-stats">
                                             <span className="stat">
                                                 Active tasks: <strong>
-                                                    {selectedProjectId === null ? '—'
-                                                        : tasks.filter(t => 
+                                                    {tasks.filter(t => 
                                                         t.assignees?.some(a => a.id === user.id) && 
                                                         t.status !== 'COMPLETED'
                                                         ).length
@@ -399,8 +420,7 @@ function DashboardPage() {
                                             </span>
                                             <span className="stat">
                                                 Completed: <strong>
-                                                    {selectedProjectId === null ? '—'
-                                                        : tasks.filter(t => 
+                                                    {tasks.filter(t => 
                                                         t.assignees?.some(a => a.id === user.id) && 
                                                         t.status === 'COMPLETED'
                                                         ).length
@@ -428,6 +448,20 @@ function DashboardPage() {
                 title="Add New Project"
             >
                 <form onSubmit={handleCreateProject}>
+                    <div className="form-group">
+                        <label>Project *</label>
+                        <select
+                            value={taskForm.projectId}
+                            onChange={(e) => setTaskForm({...taskForm, projectId: e.target.value})}
+                            required
+                            disabled={editingTask !== null}
+                        >
+                            <option value="">Select Project</option>
+                            {projects.map(p => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                        </select>
+                    </div>
                     <div className="form-group">
                         <label>Project Name *</label>
                         <input

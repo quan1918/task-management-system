@@ -46,7 +46,6 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
-    private final CommentRepository commentRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     // ==================== CREATE USER ====================
@@ -102,7 +101,22 @@ public class UserService {
      */
     public UserResponse createUser(CreateUserRequest request) {
         log.info("Creating new user: username={}, email={}", request.getUsername(), request.getEmail());
-
+        
+        if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
+            throw new IllegalArgumentException("Username cannot be null or empty");
+        }
+        
+        if (request.getEmail() == null || request.getEmail().trim().isEmpty()) {
+            throw new IllegalArgumentException("Email cannot be null or empty");
+        }
+        
+        if (!User.isValidEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Invalid email format");
+        }
+        
+        if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
+            throw new IllegalArgumentException("Password cannot be null or empty");
+        }
         // STEP 1: Validate username và email chưa tồn tại
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             log.error("Username already exists: {}", request.getUsername());
@@ -233,6 +247,10 @@ public class UserService {
     public UserResponse updateUser(Long id, UpdateUserRequest request) {
         log.info("Updating user: userId={}", id);
 
+        if (request == null) {
+        throw new IllegalArgumentException("UpdateUserRequest cannot be null");
+        }
+
         // STEP 1: Tìm user theo ID
         User user = userRepository.findById(id)
             .orElseThrow(() -> {
@@ -249,13 +267,15 @@ public class UserService {
                 log.error("Email already exists: {}", request.getEmail());
                 throw new DuplicateResourceException("Email already exists: " + request.getEmail());
             }
-
             user.setEmail(request.getEmail());
             log.debug("Email updated: {}", request.getEmail());
         }
 
         // STEP 3: Update full name
         if (request.getFullName() != null) {
+            if (request.getFullName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Full name cannot be empty");
+            }
             user.setFullName(request.getFullName());
             log.debug("Full name updated: {}", request.getFullName());
         }
