@@ -272,13 +272,6 @@ public class ProjectService {
     @Transactional(readOnly = true)
     public List<TaskResponse> getProjectTasks(Long projectId) {
         log.info("Fetching tasks for project: projectId={}", projectId);
-
-        // Validate project exists
-        Project project = projectRepository.findById(projectId)
-            .orElseThrow(() -> {
-                log.error("Project not found: projectId={}", projectId);
-                return new ProjectNotFoundException(projectId);
-            });
             
         List<Task> tasks = taskRepository.findAllByProjectIdWithAssignees(projectId);
 

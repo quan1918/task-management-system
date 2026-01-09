@@ -158,10 +158,6 @@ public class TaskService {
 
         log.info("Task saved succesfully: taskId={}, title={}", savedTask.getId(), savedTask.getTitle());
 
-    // ========== STEP 5: Convert to Response DTO ==========
-
-
-    // ========== STEP 7: Return Response ==========
         
         return getTaskById(savedTask.getId());
     }    
@@ -204,7 +200,6 @@ public class TaskService {
                 return new TaskNotFoundException(id);
             });
         
-        // WORKAROUND: Load assignees separately to bypass @Where filter issue
         List<Long> assigneeIds = taskRepository.findAssigneeIdsByTaskId(id);
         List<User> assignees = userRepository.findAllById(assigneeIds);
         task.getAssignees().clear();
@@ -303,7 +298,6 @@ public class TaskService {
                     String inactiveUsernames = inactiveUsers.stream()
                         .map(User::getUsername)
                         .collect(Collectors.joining(", "));
-                    log.error("Cannot assign to inactive users: {}", inactiveUsernames);
                     throw new BusinessRuleException(
                         "Cannot assign task to inactive users: " + inactiveUsernames
                     );
@@ -334,7 +328,6 @@ public class TaskService {
             }
         }
 
-    // ========== STEP 4: Update Basic Fields (partial update) ==========
 
         if (request.getTitle() != null) {
             log.debug("Updating title: old='{}', new='{}'", task.getTitle(), request.getTitle());
@@ -367,7 +360,6 @@ public class TaskService {
             task.setNotes(request.getNotes());
         }
 
-    // ========== STEP 5: Update Status with Business Logic ==========
 
         if (request.getStatus() != null) {
             TaskStatus oldStatus = task.getStatus();
@@ -388,8 +380,6 @@ public class TaskService {
             }
             task.setStatus(newStatus);
         }
-
-    // ========== STEP 6: Save to Database ==========
         
         // JPA Dirty Checking: Hibernate tự động detect changes và generate UPDATE query
         // Không cần gọi repository.save() nếu đang trong @Transactional
@@ -398,10 +388,8 @@ public class TaskService {
 
         log.info("Task updated sucessfully: id={}, updatedAt={}", updatedTask.getId(), updatedTask.getUpdatedAt());
 
-    // ========== STEP 7: Convert to Response DTO ==========
-    
         // Trigger lazy loading trước khi transaction close
-        if (updatedTask.getAssignees() != null && !updatedTask.getAssignees().isEmpty()) {
+        if (!updatedTask.getAssignees().isEmpty()) {
             updatedTask.getAssignees().forEach(user -> user.getUsername());
         }
         updatedTask.getProject().getName();
@@ -438,10 +426,6 @@ public class TaskService {
      * @param id Task ID cần xóa
      * @throws TaskNotFoundException nếu task không tồn tại
      * 
-     * Example Usage:
-     * taskService.deleteTask(123L);
-     * // Task #123, comments, và attachments đều bị xóa
-     * 
      * HTTP Response:
      * - Success: 204 No Content (không có body)
      * - Task not found: 404 Not Found
@@ -457,56 +441,23 @@ public class TaskService {
                 return new TaskNotFoundException(id);
             });
 
-        log.debug("Found task to delete: id={}, title={}, commentCount={}, attachmentCount={}",
+        log.debug("Found task to delete: id={}, title={}, ",
             task.getId(),
-            task.getTitle(),
-            task.getComments() !=null ? task.getComments().size() : 0,
-            task.getAttachments() !=null ? task.getAttachments().size() : 0
+            task.getTitle()
         );
 
-        // ========== STEP 2: Log Related Data (for audit) ==========
-
-        // Log để audit trail (biết task nào bị xóa)
-
-        if (task.getComments() != null && !task.getComments().isEmpty()) {
-            log.info("Task has {} comments that will be cascade deleted", task.getComments().size());
-        }
-
-        if (task.getAttachments() != null && !task.getAttachments().isEmpty()) {
-            log.info("Task has {} attachment that will be cascade deleted", task.getAttachments().size());
-        }
-
-        // ========== STEP 3: Delete Task ==========
-    
-        // JPA/Hibernate sẽ tự động:
-        // 1. DELETE FROM comments WHERE task_id = ?
-        // 2. DELETE FROM attachments WHERE task_id = ?
-        // 3. DELETE FROM tasks WHERE id = ?
+        // ========== STEP 2: Delete Task ==========
 
         taskRepository.delete(task);
 
         log.info("Task deleted successfully: id={}, title={}", id, task.getTitle());
 
-        // Transaction commit tự động khi method kết thúc (@Transactional)
-        // Nếu có exception, transaction sẽ rollback
     }
 
-    // ==================== SOFT DELETE ====================
+    // ==================== FUTURE METHODS ====================
 
     /**
      * Soft delete: Đánh dấu task đã xóa thay vì xóa thật
-     * 
-     * Ưu điểm:
-     * - Có thể khôi phục task đã xóa
-     * - Giữ lại lịch sử cho audit
-     * - An toàn hơn (tránh xóa nhầm)
-     * 
-     * Cần thêm:
-     * - Task entity: boolean deleted + LocalDateTime deletedAt
-     * - Repository: @Query filter deleted = false
-     * 
-     * @param id Task ID
-     */
     public void softDeleteTask(Long id) {
         log.info("Soft deleting task: id={}", id);
 
@@ -522,9 +473,6 @@ public class TaskService {
 
     /**
      * Khôi phục task đã soft delete
-     * 
-     * @param id Task ID
-     */
 
     public void restoreTask(Long id) {
         log.info("Restoring soft deleted task: id={}", id);
@@ -539,73 +487,11 @@ public class TaskService {
         taskRepository.save(task);
     }
 
-    // ==================== HELPER METHOD (OPTIONAL) ====================
-    
-    /**
-     * Kiểm tra task có tồn tại không
-     * 
-     * Helper method cho các service khác
-     * 
-     * @param id Task ID
-     * @return true nếu task tồn tại
-     */
-    public boolean taskExists(Long id) {
-        return taskRepository.existsById(id);
-    }
-    
-    /**
-     * Lấy task entity (internal use)
-     * 
-     * Dùng cho internal service logic, không expose ra controller
-     * 
-     * @param id Task ID
-     * @return Task entity
-     * @throws TaskNotFoundException nếu không tìm thấy
-     */
-    protected Task getTaskEntityById(Long id) {
-        return taskRepository.findById(id)
-            .orElseThrow(() -> new TaskNotFoundException(id));
-    }
-
-    /**
-     * Validate status transition rules
-     * 
-     * Optional business logic để prevent invalid status transitions
-     * Ví dụ:
-     * - Không cho phép CANCELLED → IN_PROGRESS
-     * - Không cho phép COMPLETED → PENDING (reopen task)
-     * 
-     * @param oldStatus Current status
-     * @param newStatus Desired new status
-     * @throws IllegalStateException nếu transition không hợp lệ
-     */
-    private void validateStatusTransition(TaskStatus oldStatus, TaskStatus newStatus) {
-        // Example: Ngăn chặn việc mở lại các tác vụ đã hoàn thành
-        if (oldStatus == TaskStatus.COMPLETED && newStatus == TaskStatus.PENDING) {
-            log.error("Invalid status transition: Cannot reopen completed task");
-            throw new IllegalStateException(
-                "Cannot change status from COMPLETED to PENDING. Task cannot be reopened."
-            );
-        }
-        
-        // Example: Ngăn chặn việc bắt đầu các tác vụ đã bị hủy
-        if (oldStatus == TaskStatus.CANCELLED && newStatus == TaskStatus.IN_PROGRESS) {
-            log.error("Invalid status transition: Cannot start cancelled task");
-            throw new IllegalStateException(
-                "Cannot change status from CANCELLED to IN_PROGRESS. Create a new task instead."
-            );
-        }
-        
-        // Thêm các quy tắc khác khi cần thiết.
-        log.debug("Status transition validated: {} -> {}", oldStatus, newStatus);
-    }
-    // ==================== FUTURE METHODS ====================
     
     // Future methods for other features:
-    
-    // public void deleteTask(Long id) { }
-    // public TaskResponse getTaskById(Long id) { }
+
     // public List<TaskResponse> getAllTasks() { }
     // public List<TaskResponse> getTasksByProjectId(Long projectId) { }
     // public List<TaskResponse> getTasksByAssigneeId(Long assigneeId) { }
+    */
 }

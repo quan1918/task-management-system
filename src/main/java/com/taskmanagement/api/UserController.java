@@ -55,35 +55,7 @@ public class UserController {
      *   "fullName": "John Doe"
      * }
      * 
-     * Response (201 Created):
-     * Location: /api/users/10
-     * {
-     *   "id": 10,
-     *   "username": "john_doe",
-     *   "email": "john@example.com",
-     *   "fullName": "John Doe",
-     *   "active": true,
-     *   "lastLoginAt": null,
-     *   "createdAt": "2025-12-17T10:30:00",
-     *   "updatedAt": "2025-12-17T10:30:00"
-     * }
      * 
-     * Response (400 Bad Request):
-     * {
-     *   "status": 400,
-     *   "error": "Validation Error",
-     *   "message": "Username must be between 3 and 50 characters"
-     * }
-     * 
-     * Response (409 Conflict):
-     * {
-     *   "status": 409,
-     *   "error": "Duplicate Resource",
-     *   "message": "Username already exists: john_doe"
-     * }
-     * 
-     * @param request CreateUserRequest với validation
-     * @return ResponseEntity 201 Created với UserResponse
      */
     @PostMapping
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
@@ -108,44 +80,11 @@ public class UserController {
      * - URL: /api/users
      * - Authentication: Required (Basic Auth)
      * 
-     * Response:
-     * - Thành công: 200 OK
-     *   - Body: List<UserResponse> (JSON array)
-     * - Unauthorized: 401 Unauthorized
      * 
      * Example Request:
      * GET /api/users
      * Authorization: Basic YWRtaW46YWRtaW4=
      * 
-     * Example Response (200 OK):
-     * [
-     *   {
-     *     "id": 1,
-     *     "username": "john_doe",
-     *     "email": "john@example.com",
-     *     "fullName": "John Doe",
-     *     "active": true,
-     *     "lastLoginAt": "2025-12-09T10:30:00",
-     *     "createdAt": "2025-12-01T08:00:00",
-     *     "updatedAt": "2025-12-09T10:30:00"
-     *   },
-     *   {
-     *     "id": 2,
-     *     "username": "jane_smith",
-     *     "email": "jane@example.com",
-     *     "fullName": "Jane Smith",
-     *     "active": true,
-     *     "lastLoginAt": null,
-     *     "createdAt": "2025-12-05T14:00:00",
-     *     "updatedAt": "2025-12-05T14:00:00"
-     *   }
-     * ]
-     * 
-     * Use Case:
-     * - Client hiển thị dropdown list assignees khi tạo task
-     * - Admin quản lý danh sách users
-     * 
-     * @return ResponseEntity với 200 OK và List<UserResponse>
      */
     @GetMapping
     public ResponseEntity<List<UserResponse>> getAllUser() {
@@ -171,44 +110,11 @@ public class UserController {
      * - Path Variable: id (Long) - User ID
      * - Authentication: Required (Basic Auth)
      * 
-     * Response:
-     * - Thành công: 200 OK
-     *   - Body: UserResponse (JSON)
-     * - User không tồn tại: 404 Not Found
-     *   - Body: ErrorResponse "User not found with ID: X"
-     * - Unauthorized: 401 Unauthorized
      * 
      * Example Request:
      * GET /api/users/1
      * Authorization: Basic YWRtaW46YWRtaW4=
      * 
-     * Example Response (200 OK):
-     * {
-     *   "id": 1,
-     *   "username": "john_doe",
-     *   "email": "john@example.com",
-     *   "fullName": "John Doe",
-     *   "active": true,
-     *   "lastLoginAt": "2025-12-09T10:30:00",
-     *   "createdAt": "2025-12-01T08:00:00",
-     *   "updatedAt": "2025-12-09T10:30:00"
-     * }
-     * 
-     * Example Response (404 Not Found):
-     * {
-     *   "timestamp": "2025-12-11T14:25:30",
-     *   "status": 404,
-     *   "error": "User Not Found",
-     *   "message": "User not found with ID: 999",
-     *   "path": "/api/users/999"
-     * }
-     * 
-     * Use Case:
-     * - Hiển thị thông tin chi tiết assignee trong task detail
-     * - Verify user tồn tại trước khi assign task
-     * 
-     * @param id User ID (từ URL path)
-     * @return ResponseEntity với 200 OK và UserResponse
      */
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
@@ -241,33 +147,6 @@ public class UserController {
      *   "fullName": "John Smith"
      * }
      * 
-     * Response (200 OK):
-     * {
-     *   "id": 10,
-     *   "username": "john_doe",
-     *   "email": "newemail@example.com",
-     *   "fullName": "John Smith",
-     *   "active": true,
-     *   "updatedAt": "2025-12-17T11:00:00"
-     * }
-     * 
-     * Response (404 Not Found):
-     * {
-     *   "status": 404,
-     *   "error": "User Not Found",
-     *   "message": "User not found with ID: 999"
-     * }
-     * 
-     * Response (409 Conflict):
-     * {
-     *   "status": 409,
-     *   "error": "Duplicate Resource",
-     *   "message": "Email already exists: newemail@example.com"
-     * }
-     * 
-     * @param id User ID
-     * @param request UpdateUserRequest với validation
-     * @return ResponseEntity 200 OK với UserResponse
      */
     @PutMapping("/{id}")
     public ResponseEntity<UserResponse> updateUser(
@@ -299,18 +178,6 @@ public class UserController {
      * DELETE /api/users/2
      * Authorization: Basic YWRtaW46YWRtaW4=
      * 
-     * Response (204 No Content):
-     * - Body: Empty
-     * 
-     * Response (404 Not Found):
-     * {
-     *   "status": 404,
-     *   "error": "User Not Found",
-     *   "message": "User not found with ID: 2"
-     * }
-     * 
-     * @param id User ID
-     * @return ResponseEntity 204 No Content
      */
     @DeleteMapping("/{id}")    
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {

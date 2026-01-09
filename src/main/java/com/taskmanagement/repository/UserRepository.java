@@ -78,12 +78,6 @@ public interface UserRepository extends JpaRepository<User, Long>{
 //
 // ==================== CHƯA CẦN CUSTOM METHOD ====================
 //
-// Đối với chức năng Create Task, chúng ta chỉ cần:
-// 1. findById(Long id) - để lấy thực thể User
-// 2. existsById(Long id) - để kiểm tra User có tồn tại hay không
-//
-// Cả hai phương thức đều đã được JpaRepository cung cấp!
-// Không cần viết thêm phương thức nào tại đây.
 //
 // Các phương thức bổ sung có thể thêm sau khi phát triển các tính năng khác:
 // boolean existsByEmail(String email);

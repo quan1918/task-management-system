@@ -198,7 +198,7 @@ class UserServiceTest {
             .thenReturn(Optional.of(testUser));
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
-        when(taskRepository.removeUserFromAllTasks(TestConstants.TEST_USER_ID)).thenReturn(0);
+        when(taskRepository.unassignTasksByUserId(TestConstants.TEST_USER_ID)).thenReturn(0);
       
         // Act
         userService.deleteUser(TestConstants.TEST_USER_ID);
@@ -206,7 +206,7 @@ class UserServiceTest {
         // Assert
         verify(userRepository, times(1)).findByIdIncludingDeleted(TestConstants.TEST_USER_ID);
         verify(userRepository, times(1)).save(any(User.class));
-        verify(taskRepository, times(1)).removeUserFromAllTasks(TestConstants.TEST_USER_ID);
+        verify(taskRepository, times(1)).unassignTasksByUserId(TestConstants.TEST_USER_ID);
     }
 
     @Test
@@ -223,7 +223,7 @@ class UserServiceTest {
 
         verify(userRepository, times(1)).findByIdIncludingDeleted(TestConstants.INVALID_ID);
         verify(userRepository, never()).save(any(User.class));
-        verify(taskRepository, never()).removeUserFromAllTasks(anyLong());
+        verify(taskRepository, never()).unassignTasksByUserId(anyLong());
     }
 
     // ==================== CREATE USER - INVALID EMAIL ====================

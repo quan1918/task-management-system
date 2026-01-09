@@ -3,12 +3,9 @@ package com.taskmanagement.service;
 import com.taskmanagement.dto.request.CreateUserRequest;
 import com.taskmanagement.dto.request.UpdateUserRequest;
 import com.taskmanagement.dto.response.UserResponse;
-import com.taskmanagement.entity.Task;
 import com.taskmanagement.entity.User;
-import com.taskmanagement.entity.TaskStatus;
 import com.taskmanagement.repository.UserRepository;
 import com.taskmanagement.repository.TaskRepository;
-import com.taskmanagement.repository.CommentRepository;
 import com.taskmanagement.exception.DuplicateResourceException;
 import com.taskmanagement.exception.UserNotFoundException;
 
@@ -67,38 +64,8 @@ public class UserService {
      * - User mới mặc định active = true
      * - lastLoginAt = null (chưa login lần nào)
      * 
-     * @param request CreateUserRequest với username, email, password, fullName
-     * @return UserResponse DTO
-     * @throws DuplicateResourceException nếu username hoặc email đã tồn tại
-     * 
-     * Example:
-     * POST /api/users
-     * {
-     *   "username": "john_doe",
-     *   "email": "john@example.com",
-     *   "password": "SecurePass123!",
-     *   "fullName": "John Doe"
-     * }
-     * 
-     * Response 201 Created:
-     * {
-     *   "id": 10,
-     *   "username": "john_doe",
-     *   "email": "john@example.com",
-     *   "fullName": "John Doe",
-     *   "active": true,
-     *   "lastLoginAt": null,
-     *   "createdAt": "2025-12-17T10:30:00",
-     *   "updatedAt": "2025-12-17T10:30:00"
-     * }
      */
-    /**
-     * Lấy thông tin user theo ID
-     * 
-     * @param id ID của user
-     * @return UserResponse DTO chứa thông tin user
-     * @throws UserNotFoundException nếu không tìm thấy user
-     */
+
     public UserResponse createUser(CreateUserRequest request) {
         log.info("Creating new user: username={}, email={}", request.getUsername(), request.getEmail());
         
@@ -117,7 +84,7 @@ public class UserService {
         if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
             throw new IllegalArgumentException("Password cannot be null or empty");
         }
-        // STEP 1: Validate username và email chưa tồn tại
+        // STEP 1: Validate username chưa tồn tại
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             log.error("Username already exists: {}", request.getUsername());
             throw new DuplicateResourceException("Username already exists: " + request.getUsername());
@@ -139,7 +106,7 @@ public class UserService {
             .email(request.getEmail())
             .passwordHash(hasedPassword)
             .fullName(request.getFullName())
-            .active(true)  // Mặc định active = true
+            .active(true)  
             .createdAt(LocalDateTime.now())
             .build();
 
@@ -152,11 +119,18 @@ public class UserService {
         return mapToResponse(savedUser);
     }
 
+    /**
+     * Lấy thông tin user theo ID
+     * 
+     * @param id ID của user
+     * @return UserResponse DTO chứa thông tin user
+     * @throws UserNotFoundException nếu không tìm thấy user
+     */
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
         log.info("Fetching user by ID: {}", id);
 
-        User user = userRepository.findById(id)     // @Where clause tự động filter deleted
+        User user = userRepository.findById(id)     
             .orElseThrow(() -> {log.error("User not found with ID: {}",id);
                 return new UserNotFoundException(id);
             });
@@ -188,7 +162,7 @@ public class UserService {
     public List<UserResponse> getAllUsers() {
         log.info("Fetching all users");
 
-        List<User> users = userRepository.findAll();    // @Where tự động filter
+        List<User> users = userRepository.findAll();    
 
         log.debug("Found {} users", users.size());
 
@@ -333,7 +307,7 @@ public class UserService {
             user.getUsername(), user.getEmail());
 
         // STEP 3: Unassign tasks
-        int removedCount = taskRepository.removeUserFromAllTasks(id);
+        int removedCount = taskRepository.unassignTasksByUserId(id);
 
         // STEP 4: Soft delete user
         
