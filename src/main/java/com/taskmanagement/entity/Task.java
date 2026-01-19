@@ -307,6 +307,24 @@ public class Task {
      */
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    /**
+    * isOverdue – Kiểm tra task có quá hạn không
+    *
+    * Logic: Due date đã qua nhưng task chưa hoàn thành
+    */
+    public boolean isOverdue() {
+        return !this.status.isTerminal() && LocalDateTime.now().isAfter(this.dueDate);
+    }
+
+    /**
+    * hoursUntilDue – Tính số giờ còn lại trước deadline
+    *
+    * Trả về số âm nếu đã quá hạn
+    */
+    public long hoursUntilDue() {
+        return java.time.Duration.between(LocalDateTime.now(), this.dueDate).toHours();
+    }
     
 // ==================== AUDIT FIELDS ====================
 
