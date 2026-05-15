@@ -3,6 +3,7 @@ package com.taskmanagement;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
  * Main entry point for the Task Management System Spring Boot application.
@@ -47,6 +48,7 @@ import org.springframework.context.annotation.ComponentScan;
  * @since 2025-12-01
  */
 @SpringBootApplication
+@EnableAsync
 @ComponentScan(basePackages = "com.taskmanagement")
 public class TaskManagementApplication {
     public static void main(String[] args) {

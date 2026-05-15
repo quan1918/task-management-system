@@ -1,7 +1,11 @@
 package com.taskmanagement.dto.request;
 
+import com.taskmanagement.annotation.StrongPassword;
+import com.taskmanagement.entity.RoleType;
 import lombok.*;
 import jakarta.validation.constraints.*;
+
+import java.util.Set;
 
 /**
  * CreateUserRequest - DTO cho việc tạo user mới
@@ -35,11 +39,12 @@ public class CreateUserRequest {
     private String email;
 
     @NotBlank(message = "Password is required")
-    @Size(min = 8, message = "Password must be at least 8 characters long")
+    @StrongPassword
     private String password;
 
     @NotBlank(message = "Full name is required")
     @Size(max = 100, message = "Full name must be at most 100 characters")
     private String fullName;
-    
+
+    private Set<RoleType> roles;
 }

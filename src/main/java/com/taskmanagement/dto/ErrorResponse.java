@@ -1,4 +1,4 @@
-package com.taskmanagement.exception;
+package com.taskmanagement.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
@@ -33,6 +33,10 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL) // Chỉ bao gồm các trường không null trong JSON
 public class ErrorResponse {
     
+/** * Success indicator (always false for errors) */ 
+    @Builder.Default 
+    private Boolean success = false;
+
 /**
  * Thời điểm lỗi xảy ra
  */

@@ -57,7 +57,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findAllByActiveTrue();
     
     List<Project> findByOwnerId(Long ownerId);
-// List<Project> findByActiveTrue();
 // List<Project> findByNameContainingIgnoreCase(String name);
 
 } 

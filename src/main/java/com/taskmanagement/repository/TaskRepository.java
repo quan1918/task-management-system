@@ -13,6 +13,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 /**
  * TaskRepository - Tầng truy cập dữ liệu cho entity Task
@@ -44,6 +46,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long>  {
 
+    @Query("SELECT DISTINCT t FROM Task t " +
+       "LEFT JOIN FETCH t.assignees " +
+       "LEFT JOIN FETCH t.project " +
+       "WHERE t.id = :id")
+    Optional<Task> findByIdWithAssignees(@Param("id") Long id);
+    
     /**
      * Find task by ID with assignees and project eagerly loaded
      * TEST: Using native SQL to bypass Hibernate @Where filtering
@@ -73,9 +81,11 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
      * Task #10 has assignees: [user5, user7]
      * findTasksAssignedToUser(5) → Returns Task #10
      * findTasksAssignedToUser(7) → Returns Task #10
-     */
+     *
     @Query("SELECT DISTINCT t FROM Task t JOIN t.assignees a WHERE a.id = :userId")
     List<Task> findTasksAssignedToUser(@Param("userId") Long userId); 
+    **/
+
 
     /**
      * Bulk update: Remove user from all tasks
@@ -95,16 +105,12 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
 
     /**
      * Tìm tất cả tasks có status = UNASSIGNED
-     * 
-     * @return List các UNASSIGNED tasks
-     */
     List<Task> findByStatus(TaskStatus status);
     
-    /**
      * Find UNASSIGNED tasks (no assignees)
-     */
     @Query("SELECT t FROM Task t WHERE t.assignees IS EMPTY")
     List<Task> findUnassignedTasks();
+    **/
     
     /**
      * Find tasks by status and assignee
@@ -126,6 +132,18 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
            "ORDER BY t.createdAt DESC")
     List<Task> findAllByProjectIdWithAssignees(@Param("projectId") Long projectId);
 
+    // * Paginated list of all tasks with eagerly loaded associations.
+    //* @EntityGraph avoids N+1 and generates a proper COUNT query (unlike JOIN FETCH).
+    @Override
+    @EntityGraph(attributePaths = {"assignees", "project"})
+    Page<Task> findAll(Pageable pageable);
+
+    /**
+    * Paginated tasks for a specific project, with associations loaded.
+    */
+    @EntityGraph(attributePaths = {"assignees", "project"})
+    Page<Task> findAllByProjectId(Long projectId, Pageable pageable);
+    
     // ==================== CÁC PHƯƠNG THỨC KẾ THỪA ====================
     //
     // Từ JpaRepository<Task, Long>:

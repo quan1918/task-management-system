@@ -4,6 +4,7 @@ import com.taskmanagement.dto.request.CreateProjectRequest;
 import com.taskmanagement.dto.request.UpdateProjectRequest;
 import com.taskmanagement.dto.response.ProjectResponse;
 import com.taskmanagement.dto.response.TaskResponse;
+import com.taskmanagement.dto.response.PagedResponse;
 import com.taskmanagement.service.ProjectService;
 
 import jakarta.validation.Valid;
@@ -13,6 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 
 import java.util.List;
 
@@ -31,7 +35,7 @@ import java.util.List;
  * - GET    /api/projects/{id}/tasks   → Get project tasks
  */
 @RestController
-@RequestMapping("/api/projects")
+@RequestMapping("/api/v1/projects")
 @RequiredArgsConstructor
 @Slf4j
 public class ProjectController {
@@ -43,7 +47,7 @@ public class ProjectController {
     /**
      * Tạo project mới
      * 
-     * POST /api/projects
+     * POST /api/v1/projects
      * 
      * Request Body:
      * {
@@ -70,7 +74,7 @@ public class ProjectController {
     public ResponseEntity<ProjectResponse> createProject(
         @Valid @RequestBody CreateProjectRequest request
     ) {
-        log.info("POST /api/projects - Tạo project mới: {}", request.getName());
+        log.info("POST /projects - Tạo project mới: {}", request.getName());
         ProjectResponse response = projectService.createProject(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -97,7 +101,7 @@ public class ProjectController {
      */
     @GetMapping
     public ResponseEntity<List<ProjectResponse>> getAllProjects() {
-        log.info("GET /api/projects - Lấy tất cả active projects");
+        log.info("GET /projects - Lấy tất cả active projects");
 
         List<ProjectResponse> response = projectService.getAllProjects();
 
@@ -137,7 +141,7 @@ public class ProjectController {
     public ResponseEntity<ProjectResponse> getProjectById(
         @PathVariable Long id
     ) {
-        log.info("GET /api/projects/{} - Fetching project by ID", id);
+        log.info("GET /projects/{} - Fetching project by ID", id);
 
         ProjectResponse response = projectService.getProjectById(id);
 
@@ -170,12 +174,12 @@ public class ProjectController {
      * @param request UpdateProjectRequest
      * @return ResponseEntity 200 OK với ProjectResponse
      */
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<ProjectResponse> updatedProject(
         @PathVariable Long id,
         @Valid @RequestBody UpdateProjectRequest request
     ) {
-        log.info("PUT /api/projects/{} - Updating project", id);
+        log.info("PUT /projects/{} - Updating project", id);
 
         ProjectResponse response = projectService.updateProject(id, request);
 
@@ -204,7 +208,7 @@ public class ProjectController {
     public ResponseEntity<Void> archiveProject(
         @PathVariable Long id
     ) {
-        log.info("DELETE /api/projects/{} - Archiving project", id);
+        log.info("DELETE /projects/{} - Archiving project", id);
 
         projectService.archiveProject(id);
 
@@ -234,7 +238,7 @@ public class ProjectController {
     public ResponseEntity<ProjectResponse> reactivateProject(
         @PathVariable Long id
     ) {
-        log.info("POST /api/projects/{}/reactivate - Reactivating project", id);
+        log.info("POST /projects/{}/reactivate - Reactivating project", id);
 
         ProjectResponse response = projectService.reactivateProject(id);
 
@@ -263,14 +267,16 @@ public class ProjectController {
      * @return ResponseEntity 200 OK với List<TaskResponse>
      */
     @GetMapping("/{id}/tasks")
-    public ResponseEntity<List<TaskResponse>> getProjectTasks(@PathVariable Long id) {
-        log.info("GET /api/projects/{}/tasks - Fetching project tasks", id);
+    public ResponseEntity<PagedResponse<TaskResponse>> getProjectTasks(
+        @PathVariable Long id, 
+        @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("GET /projects/{}/tasks - Fetching project tasks with pagination: page={}, size={}", id, pageable.getPageNumber(), pageable.getPageSize());
         
-        List<TaskResponse> responses = projectService.getProjectTasks(id);
+        PagedResponse<TaskResponse> response = projectService.getProjectTasksPaged(id, pageable);
         
         log.info("Retrieved {} tasks for project: projectId={}", 
-            responses.size(), id);
-        
-        return ResponseEntity.ok(responses);
+            response.getContent().size(), id);
+            
+        return ResponseEntity.ok(response);
     }
 }

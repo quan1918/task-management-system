@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
+import com.taskmanagement.dto.ErrorResponse;
+
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,9 +56,14 @@ public class GlobalExceptionHandler {
         // Trích xuat lỗi theo field
         Map<String, String> fieldErrors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
-            String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
-            fieldErrors.put(fieldName, errorMessage);
+
+            if (error instanceof FieldError fieldError) {
+                fieldErrors.put(fieldError.getField(), errorMessage);
+            } else {
+                // Object-level error
+                fieldErrors.put("_object", errorMessage);
+            }
         });
 
         ErrorResponse errorResponse = ErrorResponse.builder()
@@ -70,97 +77,87 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
+
+    @ExceptionHandler(BusinessRuleException.class)
+    public ResponseEntity<ErrorResponse> handleBusinessRule(
+            BusinessRuleException ex,
+            WebRequest request) {
+
+        log.warn("Business rule violation: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.BAD_REQUEST.value())
+            .error("Business Rule Violation")
+            .message(ex.getMessage())
+            .path(request.getDescription(false).replace("uri=", ""))
+            .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+// ==================== UNAUTHORIZED (401 Unauthorized) ====================
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorized(
+            UnauthorizedException ex,
+            WebRequest request) {
+
+        log.warn("Unauthorized access: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.UNAUTHORIZED.value())
+            .error("Unauthorized")
+            .message(ex.getMessage())
+            .path(request.getDescription(false).replace("uri=", ""))
+            .build();
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+
+// ==================== FORBIDDEN (403 Forbidden) ====================
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(
+            ForbiddenException ex,
+            WebRequest request) {
+
+        log.warn("Forbidden access: {}", ex.getMessage());
+
+        ErrorResponse errorResponse = ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.FORBIDDEN.value())
+            .error("Forbidden")
+            .message(ex.getMessage())
+            .path(request.getDescription(false).replace("uri=", ""))
+            .build();
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+    }
+
 // ==================== RESOURCE NOT FOUND (404 Not Found) ====================
 
-/**
- * Xử lý UserNotFoundException
- * 
- * Được kích hoạt khi:
- * - Assignee ID không tồn tại
- * 
- * Trả về: 404 Not Found
- */
-    @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleUserNotFound(
-            UserNotFoundException ex,
+    @ExceptionHandler({
+        UserNotFoundException.class,
+        ProjectNotFoundException.class,
+        TaskNotFoundException.class
+    })
+    public ResponseEntity<ErrorResponse> handleNotFound(
+            RuntimeException ex,
             WebRequest request) {
-        
-        log.error("User not found: {}", ex.getMessage());
+
+        log.warn("Resource not found: {}", ex.getMessage());
 
         ErrorResponse errorResponse = ErrorResponse.builder()
             .timestamp(LocalDateTime.now())
             .status(HttpStatus.NOT_FOUND.value())
-            .error("User Not Found")
-            .message(ex.getMessage())
-            .path(request.getDescription(false).replace("uri=", ""))
-            .build();
-        
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
-    }
-/**
- * Xử lý ProjectNotFoundException
- * 
- * Được kích hoạt khi:
- * - Project ID không tồn tại
- * - Project không active (đã archived)
- * 
- * Trả về: 404 Not Found
- */
-    @ExceptionHandler(ProjectNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleProjectNotFound(
-            ProjectNotFoundException ex,
-            WebRequest request) {
-
-        log.error("Project not found: {}", ex.getMessage());
-
-        ErrorResponse errorResponse = ErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.NOT_FOUND.value())
-            .error("Project Not Found")
+            .error("Resource Not Found")
             .message(ex.getMessage())
             .path(request.getDescription(false).replace("uri=", ""))
             .build();
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
-
-// ==================== TASK NOT FOUND (404 Not Found) ====================
-    
-    /**
-     * Xử lý TaskNotFoundException
-     * 
-     * Được kích hoạt khi:
-     * - Task ID không tồn tại
-     * - TaskService.getTaskById() không tìm thấy task
-     * 
-     * Trả về: 404 Not Found
-     * 
-     * Example Response:
-     * {
-     *   "timestamp": "2025-12-07T10:30:00",
-     *   "status": 404,
-     *   "error": "Task Not Found",
-     *   "message": "Task not found with ID: 123",
-     *   "path": "/api/tasks/123"
-     * }
-     */
-    @ExceptionHandler(TaskNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleTaskNotFound(
-            TaskNotFoundException ex,
-            WebRequest request) {
-
-        log.error("Task not found: {}", ex.getMessage());
-
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .error("Task Not Found")
-                .message(ex.getMessage())
-                .path(request.getDescription(false).replace("uri=", ""))
-                .build();
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
-            }
 
 // ==================== DUPLICATE RESOURCE (409 Conflict) ====================
 

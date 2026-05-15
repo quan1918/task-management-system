@@ -3,51 +3,31 @@ package com.taskmanagement.api;
 import com.taskmanagement.dto.request.CreateTaskRequest;
 import com.taskmanagement.dto.request.UpdateTaskRequest;
 import com.taskmanagement.dto.response.TaskResponse;
-import com.taskmanagement.exception.TaskNotFoundException;
+import com.taskmanagement.dto.response.PagedResponse;
 import com.taskmanagement.service.TaskService;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 
 import java.net.URI;
 
 /**
  * TaskController - REST API controller cho quản lý Task
- * 
- * Chịu trách nhiệm:
- * - Cung cấp các REST endpoint cho các thao tác với task
- * - Parse HTTP request và validate dữ liệu đầu vào
- * - Giao phần xử lý business logic cho TaskService
- * - Định dạng HTTP response với status code phù hợp
- * - Xử lý API versioning và routing
- * 
- * Thiết kế API:
- * - Base path: /api/tasks
- * - Tuân theo chuẩn RESTful
- * - Sử dụng HTTP status codes (201 Created, 400 Bad Request, ...)
- * - Giao tiếp qua JSON theo chuẩn request/response
- * 
- * @author Task Management System
- * @version 1.0 (Tính năng Create Task)
  */
 @RestController
-@RequestMapping("/api/tasks")
+@RequestMapping("/api/v1/tasks")
 @RequiredArgsConstructor
 @Slf4j
 public class TaskController {
 
-    // ==================== DEPENDENCIES ====================
-
-    /**
-     * Dependency TaskService (được inject qua constructor)
-     * 
-     * @RequiredArgsConstructor tạo constructor tự động
-     * Spring sẽ inject TaskService vào controller
-     */
     private final TaskService taskService;
 
     // ==================== CREATE TASK ENDPOINT ====================
@@ -56,20 +36,6 @@ public class TaskController {
      * Tạo task mới
      * 
      * Endpoint: POST /api/tasks
-     * 
-     * Request:
-     * - Method: POST
-     * - Content-Type: application/json
-     * - Body: CreateTaskRequest (JSON)
-     * 
-     * Response:
-     * - Thành công: 201 Created
-     *   - Location header: /api/tasks/{id}
-     *   - Body: TaskResponse (JSON)
-     * - Lỗi validation: 400 Bad Request
-     * - Không tìm thấy User: 404 Not Found
-     * - Không tìm thấy Project: 404 Not Found
-     * - Lỗi server: 500 Internal Server Error
      * 
      * Ví dụ Request:
      * POST /api/tasks
@@ -112,15 +78,12 @@ public class TaskController {
      *   "createdAt": "2025-12-04T10:30:00",
      *   "updatedAt": "2025-12-04T10:30:00"
      * }
-     * 
-     * @param request CreateTaskRequest DTO (validated tự động)
-     * @return ResponseEntity với 201 Created và TaskResponse
      */
     @PostMapping
     public ResponseEntity<TaskResponse> createTask(
             @Valid @RequestBody CreateTaskRequest request) {
         
-        log.info("POST /api/tasks - Creating task: title={}", request.getTitle());
+        log.info("POST /tasks - Creating task: title={}", request.getTitle());
 
     // ========== STEP 1: Gọi Service (Business Logic) ==========
 
@@ -158,20 +121,6 @@ public class TaskController {
      * Lấy task theo ID
      * 
      * Endpoint: GET /api/tasks/{id}
-     * 
-     * Request:
-     * - Method: GET
-     * - URL: /api/tasks/{id}
-     * - Path Variable: id (Long) - Task ID cần lấy
-     * - Authentication: Required (Basic Auth)
-     * 
-     * Response:
-     * - Thành công: 200 OK
-     *   - Body: TaskResponse (JSON) với đầy đủ thông tin task
-     * - Task không tồn tại: 404 Not Found
-     *   - Body: ErrorResponse với message "Task not found with ID: X"
-     * - Unauthorized: 401 Unauthorized (nếu không có auth)
-     * - Server error: 500 Internal Server Error
      * 
      * Ví dụ Request:
      * GET /api/tasks/123
@@ -216,14 +165,10 @@ public class TaskController {
      *   "message": "Task not found with ID: 999",
      *   "path": "/api/tasks/999"
      * }
-     * 
-     * @param id Task ID (từ URL path)
-     * @return ResponseEntity với 200 OK và TaskResponse
-     * @throws TaskNotFoundException nếu task không tồn tại (handled by GlobalExceptionHandler)
      */
     @GetMapping("/{id}")
     public ResponseEntity<TaskResponse> getTaskById(@PathVariable Long id) {
-        log.info("GET /api/tasks/{} - Fetching task by ID", id);
+        log.info("GET /tasks/{} - Fetching task by ID", id);
         
         // ========== STEP 1: Call Service (Business Logic) ==========
         
@@ -245,16 +190,6 @@ public class TaskController {
 
     /**
      * Cập nhật task hiện có (partial update)
-     * 
-     * Endpoint: PUT /api/tasks/{id}
-     * 
-     * Request:
-     * - Method: PUT (hoặc PATCH cho partial update)
-     * - URL: /api/tasks/{id}
-     * - Path Variable: id (Long) - Task ID cần update
-     * - Content-Type: application/json
-     * - Body: UpdateTaskRequest (JSON) - Chỉ gửi các field cần update
-     * - Authentication: Required (Basic Auth)
      * 
      * Ví dụ Request: Update multiple fields
      * PUT /api/tasks/123
@@ -308,17 +243,13 @@ public class TaskController {
      *   "message": "Task not found with ID: 999",
      *   "path": "/api/tasks/999"
      * }
-     * 
-     * @param id Task ID cần update (từ path variable)
-     * @param request UpdateTaskRequest DTO (validated tự động)
-     * @return ResponseEntity với 200 OK và TaskResponse
      */
     @PutMapping("/{id}")
     public ResponseEntity<TaskResponse> updateTask(
             @PathVariable Long id,
             @Valid @RequestBody UpdateTaskRequest request) {
         
-        log.info("PUT /api/tasks/{} - Updating task", id);
+        log.info("PUT /tasks/{} - Updating task", id);
         log.debug("Update request: {}", request);
         
         // ========== STEP 1: Gọi Service (Business Logic) ==========
@@ -397,7 +328,7 @@ public class TaskController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
 
-        log.info("DELETE /api/tasks/{} - Deleting task", id);
+        log.info("DELETE /tasks/{} - Deleting task", id);
 
     // ========== STEP 1: Gọi Service (Business Logic) ==========
     
@@ -420,9 +351,16 @@ public class TaskController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping
+    public ResponseEntity<PagedResponse<TaskResponse>> getAllTasks(
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("GET /tasks - Fetching all tasks with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
+        PagedResponse<TaskResponse> response = taskService.getAllTasksPaged(pageable);
+        return ResponseEntity.ok(response);
+    }
+    
+
     // ==================== FUTURE ENDPOINTS ====================
-
-
     /**
      * Lấy danh sách task (kèm filter)
      * GET /api/tasks?status=PENDING&assigneeId=5

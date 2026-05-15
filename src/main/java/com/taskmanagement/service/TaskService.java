@@ -3,10 +3,13 @@ package com.taskmanagement.service;
 import com.taskmanagement.dto.request.CreateTaskRequest;
 import com.taskmanagement.dto.request.UpdateTaskRequest;
 import com.taskmanagement.dto.response.TaskResponse;
+import com.taskmanagement.dto.response.PagedResponse;
 import com.taskmanagement.entity.Project;
 import com.taskmanagement.entity.Task;
 import com.taskmanagement.entity.TaskStatus;
 import com.taskmanagement.entity.User;
+import com.taskmanagement.entity.AuditAction;
+import com.taskmanagement.entity.AuditEntityType;
 import com.taskmanagement.exception.BusinessRuleException;
 import com.taskmanagement.exception.ProjectNotFoundException;
 import com.taskmanagement.exception.TaskNotFoundException;
@@ -14,6 +17,9 @@ import com.taskmanagement.exception.UserNotFoundException;
 import com.taskmanagement.repository.ProjectRepository;
 import com.taskmanagement.repository.TaskRepository;
 import com.taskmanagement.repository.UserRepository;
+import com.taskmanagement.security.SecurityUtils;
+import com.taskmanagement.event.TaskEvent;
+import com.taskmanagement.event.TaskEventType;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +32,9 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * TaskService - Lớp chứa tầng business logic cho quản lý Task
@@ -63,7 +72,8 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final ProjectRepository projectRepository;
-    
+    private final ApplicationEventPublisher eventPublisher;
+    private final AuditService auditService;
     // ==================== CREATE TASK ====================
     /**
      * Tạo task mới
@@ -90,37 +100,42 @@ public class TaskService {
         log.info("Creating new task: title={}, assigneeId={}, projectId={}",
             request.getTitle(), request.getAssigneeIds(), request.getProjectId());
         
+        if (request.getAssigneeIds() != null && request.getAssigneeIds().size() > 10) {
+            log.error("Too many assignees: {}", request.getAssigneeIds().size());
+            throw new BusinessRuleException("Max 10 assignees allowed");
+        }
     // ========== STEP 1: Validate Assignee Exists ==========
     
         // Lấy assignee từ database
         Set<User> assignees = new HashSet<>(
-            userRepository.findAllById(request.getAssigneeIds())
+            userRepository.findAllActiveByIds(request.getAssigneeIds())
         );
 
         // Kiểm tra tất cả assignees có được tìm thấy không
-        if (assignees.size() != request.getAssigneeIds().size()) {
-            Set<Long> foundIds = assignees.stream()
+        if (assignees.size() != new HashSet<>(request.getAssigneeIds()).size()) {
+            Set<Long> resolvedIds = assignees.stream()
                 .map(User::getId)
                 .collect(Collectors.toSet());
 
-            List<Long> missingIds = request.getAssigneeIds().stream()
-                .filter(id -> !foundIds.contains(id))
-                .collect(Collectors.toList());
+            List<Long> invalidIds = request.getAssigneeIds().stream()
+                .distinct()
+                .filter(id -> !resolvedIds.contains(id))
+                .toList();
 
-            log.error("Some assignees not found: missingIds={}", missingIds);
-            throw new UserNotFoundException("Assignees not found with IDs: " + missingIds);
+            log.error("Some assignees not found: invalidIds={}", invalidIds);
+            throw new UserNotFoundException("Assignees not found with IDs: " + invalidIds);
         }
 
         // Kiểm tra tất cả assignees đều active
         List<User> inactiveUsers = assignees.stream()
-            .filter(user -> !user.getActive())
+            .filter(user -> !user.isActive())
             .collect(Collectors.toList());
 
         if (!inactiveUsers.isEmpty()) {
             String inactiveUsernames = inactiveUsers.stream()
                 .map(User::getUsername)
                 .collect(Collectors.joining(", "));
-            log.error("Cannot assign task to inactive users: " + inactiveUsernames);
+            log.error("Cannot assign task to inactive users: {}", inactiveUsernames);
             throw new BusinessRuleException("Cannot assign task to inactive users: " + inactiveUsernames);
         }
 
@@ -134,7 +149,7 @@ public class TaskService {
                 return new ProjectNotFoundException(request.getProjectId());
             });
         
-        log.debug("Project found: projectId={}, active={}", project.getId(), project.getActive());
+        log.debug("Project found: projectId={}, active={}", project.getId(), project.isActive());
        
     // ========== STEP 3: Create Task Entity ==========
 
@@ -158,8 +173,18 @@ public class TaskService {
 
         log.info("Task saved succesfully: taskId={}, title={}", savedTask.getId(), savedTask.getTitle());
 
-        
-        return getTaskById(savedTask.getId());
+        TaskResponse response = getTaskById(savedTask.getId());
+        eventPublisher.publishEvent(
+            new TaskEvent(this, TaskEventType.CREATED, response.getProject().getId(), response)
+        );
+        auditService.logAction(
+            SecurityUtils.getCurrentUserId().orElse(null),
+            AuditAction.CREATE,
+            AuditEntityType.TASK,
+            savedTask.getId(),
+            "Task created: '" + savedTask.getTitle() + "' in project ID " + savedTask.getProject().getId()
+        );
+        return response;
     }    
 
     // ==================== GET TASK BY ID ====================
@@ -191,30 +216,18 @@ public class TaskService {
      */
     @Transactional(readOnly = true)
     public TaskResponse getTaskById(Long id) {
-        log.info("Fetching task by ID: {} with separate assignees query", id);
+        log.info("Fetching task by ID: {}", id);
 
-    // ========== STEP 1: Find Task in Database ==========
-        Task task = taskRepository.findByIdNative(id)
+        Task task = taskRepository.findByIdWithAssignees(id)   
             .orElseThrow(() -> {
                 log.error("Task not found: id={}", id);
                 return new TaskNotFoundException(id);
             });
-        
-        List<Long> assigneeIds = taskRepository.findAssigneeIdsByTaskId(id);
-        List<User> assignees = userRepository.findAllById(assigneeIds);
-        task.getAssignees().clear();
-        task.getAssignees().addAll(assignees);
-        
+
         log.info("Task found: id={}, title={}, assigneesSize={}", 
             task.getId(), task.getTitle(), task.getAssignees().size());
 
-    // ========== STEP 3: Convert Entity → DTO ==========
-        TaskResponse response = TaskResponse.from(task);
-
-        log.info("Task retrieved successfully: taskId={}", id);
-    
-    // ========== STEP 4: Return Response ==========
-        return response;
+        return TaskResponse.from(task);
     }
 
     // ==================== UPDATE TASK ====================
@@ -238,13 +251,6 @@ public class TaskService {
      * - Project mới phải active (nếu thay đổi)
      * - Khi status chuyển sang COMPLETED, tự động set completedAt
      * - Khi status chuyển từ COMPLETED sang khác, xóa completedAt
-     * 
-     * @param id Task ID cần update
-     * @param request UpdateTaskRequest với các field cần thay đổi
-     * @return TaskResponse DTO với dữ liệu sau khi update
-     * @throws TaskNotFoundException nếu task không tồn tại
-     * @throws UserNotFoundException nếu assignee mới không tồn tại
-     * @throws ProjectNotFoundException nếu project mới không tồn tại/inactive
      * 
      */
     public TaskResponse updateTask(Long id, UpdateTaskRequest request) {
@@ -271,27 +277,34 @@ public class TaskService {
 
             // Add new assignees (if not empty list)
             if (!request.getAssigneeIds().isEmpty()) {
+
+                if (request.getAssigneeIds().size() > 10) {
+                    throw new BusinessRuleException(
+                        "Task cannot have more than 10 assignees. Provided: " + request.getAssigneeIds().size());
+                }
+
                 Set<User> newAssignees = new HashSet<>(
-                    userRepository.findAllById(request.getAssigneeIds())
+                    userRepository.findAllActiveByIds(request.getAssigneeIds())
                 );
 
                 // Kiểm tra tất cả assignees có được tìm thấy không
-                if (newAssignees.size() != request.getAssigneeIds().size()) {
-                    Set<Long> foundIds = newAssignees.stream()
+                if (newAssignees.size() != new HashSet<>(request.getAssigneeIds()).size()) {
+                    Set<Long> resolvedIds = newAssignees.stream()
                         .map(User::getId)
                         .collect(Collectors.toSet());
 
-                    List<Long> missingIds = request.getAssigneeIds().stream()
-                        .filter(assigneeId -> !foundIds.contains(assigneeId))
+                    List<Long> invalidIds = request.getAssigneeIds().stream()
+                        .distinct()
+                        .filter(assigneeId -> !resolvedIds.contains(assigneeId))
                         .collect(Collectors.toList());
 
-                    log.error("Some assignees not found: missingIds={}", missingIds);
-                    throw new UserNotFoundException("Assignees not found with IDs: " + missingIds);
+                    log.error("Some assignees not found: invalidIds={}", invalidIds);
+                    throw new UserNotFoundException("Assignees not found with IDs: " + invalidIds);
                 }
 
                 // Kiểm tra tất cả assignees đều active
                 List<User> inactiveUsers = newAssignees.stream()
-                    .filter(user -> !user.getActive())
+                    .filter(user -> !user.isActive())
                     .collect(Collectors.toList());
 
                 if (!inactiveUsers.isEmpty()) {
@@ -346,6 +359,10 @@ public class TaskService {
         }
 
         if (request.getDueDate() != null) {
+            if (request.getDueDate().isBefore(LocalDateTime.now())) {
+                throw new BusinessRuleException(
+                    "Due date must be in the present or future");
+            }
             log.debug("Updating due date: {} -> {}", task.getDueDate(), request.getDueDate());
             task.setDueDate(request.getDueDate());
         }
@@ -367,6 +384,19 @@ public class TaskService {
 
             log.debug("Status transititon: {} -> {}", oldStatus, newStatus);
 
+        // auto-set startDate on first transition to IN_PROGRESS
+            if (newStatus == TaskStatus.IN_PROGRESS && task.getStartDate() == null) {
+                LocalDateTime startDate = LocalDateTime.now();
+                // Guard: startDate must be before dueDate
+                if (!startDate.isBefore(task.getDueDate())) {
+                    throw new BusinessRuleException(
+                        "Cannot start task: current time is at or past the due date ("
+                        + task.getDueDate() + ")");
+                }
+                task.setStartDate(startDate);
+                log.info("Task started, set startDate: {}", task.getStartDate());
+            }
+        
         // Business Rule: Đặt completedAt khi chuyển sang trạng thái COMPLETED
             if (newStatus == TaskStatus.COMPLETED && oldStatus != TaskStatus.COMPLETED) {
                 task.setCompletedAt(LocalDateTime.now());
@@ -398,6 +428,16 @@ public class TaskService {
 
         log.debug("TaskResponse created for updated task: id={}", response.getId());
 
+        eventPublisher.publishEvent(
+            new TaskEvent(this, TaskEventType.UPDATED, response.getProject().getId(), response)
+        );
+        auditService.logAction(
+            SecurityUtils.getCurrentUserId().orElse(null),
+            AuditAction.UPDATE,
+            AuditEntityType.TASK,
+            updatedTask.getId(),
+            "Task updated: '" + updatedTask.getTitle() + "'"
+        );
         return response;
     }
 
@@ -447,13 +487,27 @@ public class TaskService {
         );
 
         // ========== STEP 2: Delete Task ==========
-
+        Long projectId = task.getProject().getId();
         taskRepository.delete(task);
 
         log.info("Task deleted successfully: id={}, title={}", id, task.getTitle());
-
+        eventPublisher.publishEvent(
+            new TaskEvent(this, projectId, id));
+        auditService.logAction(
+            SecurityUtils.getCurrentUserId().orElse(null),
+            AuditAction.DELETE,
+            AuditEntityType.TASK,
+            id,
+            "Task deleted: '" + task.getTitle() + "' from project ID " + projectId
+        );
     }
 
+    @Transactional(readOnly = true)
+    public PagedResponse<TaskResponse> getAllTasksPaged(Pageable pageable) {
+        log.info("Fetching all tasks paged: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
+        Page<TaskResponse> page = taskRepository.findAll(pageable).map(TaskResponse::from);
+        return PagedResponse.from(page);
+    }
     // ==================== FUTURE METHODS ====================
 
     /**

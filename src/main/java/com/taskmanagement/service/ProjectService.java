@@ -3,22 +3,28 @@ package com.taskmanagement.service;
 import com.taskmanagement.dto.request.CreateProjectRequest;
 import com.taskmanagement.dto.request.UpdateProjectRequest;
 import com.taskmanagement.dto.response.ProjectResponse;
+import com.taskmanagement.dto.response.PagedResponse;
 import com.taskmanagement.dto.response.TaskResponse;
 import com.taskmanagement.entity.Task;
 import com.taskmanagement.entity.Project;
 import com.taskmanagement.entity.User;
+import com.taskmanagement.entity.AuditAction;
+import com.taskmanagement.entity.AuditEntityType;
 import com.taskmanagement.exception.ProjectNotFoundException;
 import com.taskmanagement.exception.BusinessRuleException;
 import com.taskmanagement.exception.UserNotFoundException;
 import com.taskmanagement.repository.ProjectRepository;
 import com.taskmanagement.repository.UserRepository;
 import com.taskmanagement.repository.TaskRepository;
+import com.taskmanagement.security.SecurityUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,6 +56,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
+    private final AuditService auditService;
 
     // ==================== CREATE PROJECT ====================
     
@@ -85,7 +92,7 @@ public class ProjectService {
                 return new UserNotFoundException(request.getOwnerId());
             });
         
-        if (!owner.getActive()) {
+        if (!owner.isActive()) {
             log.error("Owner is not active: userId={}", request.getOwnerId());
             throw new BusinessRuleException("Cannot create project: Owner '" + owner.getUsername() + "' is not active.");
         }
@@ -115,6 +122,15 @@ public class ProjectService {
 
         // STEP 5: Query task for statistics
         List<Task> tasks = taskRepository.findAllByProjectId(savedProject.getId());
+
+        auditService.logAction(
+            SecurityUtils.getCurrentUserId().orElse(null),
+            AuditAction.CREATE,
+            AuditEntityType.PROJECT,
+            savedProject.getId(),
+            "Project created: '" + savedProject.getName() + "'"
+        );
+
         return ProjectResponse.from(savedProject, tasks);
     }
 
@@ -184,7 +200,7 @@ public class ProjectService {
             User newOwner = userRepository.findById(request.getOwnerId())
                 .orElseThrow(() -> new UserNotFoundException(request.getOwnerId()));
 
-            if (!newOwner.getActive()) {
+            if (!newOwner.isActive()) {
                 throw new BusinessRuleException("New owner must be active");
             }
 
@@ -215,6 +231,14 @@ public class ProjectService {
 
         List<Task> tasks = taskRepository.findAllByProjectId(id);
 
+        auditService.logAction(
+            SecurityUtils.getCurrentUserId().orElse(null),
+            AuditAction.UPDATE,
+            AuditEntityType.PROJECT,
+            updatedProject.getId(),
+            "Project updated: '" + updatedProject.getName() + "'"
+        );
+
         return ProjectResponse.from(updatedProject, tasks);
     }
 
@@ -234,6 +258,13 @@ public class ProjectService {
 
         projectRepository.save(project);
 
+        auditService.logAction(
+            SecurityUtils.getCurrentUserId().orElse(null),
+            AuditAction.ARCHIVE,
+            AuditEntityType.PROJECT,
+            id,
+            "Project archived: '" + project.getName() + "'"
+        );
         log.info("Project archived successfully: projectId={}", id);
     }
 
@@ -249,7 +280,7 @@ public class ProjectService {
                 return new ProjectNotFoundException(id);
             });
 
-        if (project.getActive()) {
+        if (project.isActive()) {
             log.warn("Project already active: project");
             throw new BusinessRuleException("Project is already active");
         }
@@ -263,6 +294,14 @@ public class ProjectService {
 
         // Query tasks for response
         List<Task> tasks = taskRepository.findAllByProjectId(id);
+
+        auditService.logAction(
+            SecurityUtils.getCurrentUserId().orElse(null),
+            AuditAction.REACTIVATE,
+            AuditEntityType.PROJECT,
+            reactivatedProject.getId(),
+            "Project reactivated: '" + reactivatedProject.getName() + "'"
+        );
 
         return ProjectResponse.from(reactivatedProject, tasks);
     }
@@ -280,5 +319,20 @@ public class ProjectService {
         return tasks.stream()
             .map(TaskResponse::from)
             .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<TaskResponse> getProjectTasksPaged(Long projectId, Pageable pageable) {
+        log.info("Fetching paged task for project: projectId={}, page={}, size={}", projectId, pageable.getPageNumber(), pageable.getPageSize());
+    
+        projectRepository.findByIdAndActiveTrue(projectId)
+            .orElseThrow(() -> new ProjectNotFoundException(projectId));
+
+        Page<TaskResponse> page = taskRepository.findAllByProjectId(projectId, pageable)
+            .map(TaskResponse::from);
+        
+        log.info("Retrieved {} tasks for projectId={}", page.getTotalElements(), projectId);
+
+        return PagedResponse.from(page);
     }
 }

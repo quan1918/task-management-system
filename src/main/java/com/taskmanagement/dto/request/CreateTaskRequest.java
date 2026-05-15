@@ -42,7 +42,7 @@ public class CreateTaskRequest {
  * Ví dụ: "Users cannot login when using special characters in password"
  */
     @NotBlank(message = "Task title is required")
-    @Size(min = 10, max = 2000, message = "Title must be between 3 and 255 characters")
+    @Size(min = 3, max = 255, message = "Title must be between 3 and 255 characters")
     private String title;
 
 /**

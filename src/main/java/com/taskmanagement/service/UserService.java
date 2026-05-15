@@ -4,21 +4,26 @@ import com.taskmanagement.dto.request.CreateUserRequest;
 import com.taskmanagement.dto.request.UpdateUserRequest;
 import com.taskmanagement.dto.response.UserResponse;
 import com.taskmanagement.entity.User;
+import com.taskmanagement.entity.RoleType;
 import com.taskmanagement.repository.UserRepository;
 import com.taskmanagement.repository.TaskRepository;
 import com.taskmanagement.exception.DuplicateResourceException;
 import com.taskmanagement.exception.UserNotFoundException;
+import com.taskmanagement.exception.ForbiddenException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.core.Authentication;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Set;
 
 /**
  * UserService - Service xử lý logic nghiệp vụ liên quan đến User
@@ -96,6 +101,8 @@ public class UserService {
             throw new DuplicateResourceException("Email already exists: " + request.getEmail());
         }
 
+        Set<RoleType> resolvedRoles = resolveRoles(request.getRoles());
+
         // STEP 3: Hash password bằng BCrypt
         String hasedPassword = passwordEncoder.encode(request.getPassword());
         log.debug("Password hashed successfully for user: {}", request.getUsername());
@@ -109,6 +116,8 @@ public class UserService {
             .active(true)  
             .createdAt(LocalDateTime.now())
             .build();
+
+        user.setRoleSet(resolvedRoles);
 
         // STEP 5: Lưu vào database
         User savedUser = userRepository.save(user);
@@ -202,21 +211,7 @@ public class UserService {
      * @throws DuplicateResourceException nếu email mới đã tồn tại
      * 
      * Example:
-     * PUT /api/users/10
-     * {
-     *   "email": "newemail@example.com",
-     *   "fullName": "John Smith"
-     * }
      * 
-     * Response 200 OK:
-     * {
-     *   "id": 10,
-     *   "username": "john_doe",  // KHÔNG đổi
-     *   "email": "newemail@example.com",  // ĐÃ đổi
-     *   "fullName": "John Smith",  // ĐÃ đổi
-     *   "active": true,
-     *   "updatedAt": "2025-12-17T11:00:00"
-     * }
      */
     public UserResponse updateUser(Long id, UpdateUserRequest request) {
         log.info("Updating user: userId={}", id);
@@ -357,6 +352,28 @@ public class UserService {
             .createdAt(user.getCreatedAt())
             .updatedAt(user.getUpdatedAt())
             .build();
+    }
+
+    private Set<RoleType> resolveRoles(Set<RoleType> requestedRoles) {
+        if (requestedRoles == null || requestedRoles.isEmpty()) {
+            return Set.of(RoleType.ROLE_USER); // Default role
+        }
+
+        // Roles were explicitly requested, validate them
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        boolean callerIsAdmin = authentication != null && 
+            authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals(RoleType.ROLE_ADMIN.getAuthority()));
+
+        if (!callerIsAdmin) {
+            log.warn("Privilege escalation attempt by user '{}'",
+                authentication != null ? authentication.getName() : "anonymous");
+                throw new ForbiddenException("Only admins can assign roles") ;
+        }
+
+        log.debug("Roles resolved successfully: {}", requestedRoles);
+        return requestedRoles;
     }
 
 }

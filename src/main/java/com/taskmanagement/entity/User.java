@@ -6,15 +6,16 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 /**
  * User entity đại diện cho một người dùng trong ứng dụng.
  * 
@@ -135,6 +136,19 @@ public class User {
     @Builder.Default
     private Boolean active = true;
 
+    @Column(name = "refresh_token", length = 2000)
+    private String refreshToken;
+
+// ==================== ROLES FIELD ====================
+
+/**
+ * roles - danh sách vai trò của người dùng
+ * Default: ROLE_USER
+ */
+    @Column(nullable = false, length = 100)
+    @Builder.Default
+    private String roles = "ROLE_USER";
+
 /**
  * Thời điểm đăng nhập lần cuối - theo dõi hoạt động người dùng
  * 
@@ -184,19 +198,19 @@ public class User {
  * 
  * Lý do: Giữ lại dữ liệu để phục vụ log/audit
  * Ghi chú: Tài khoản bị deactivate sẽ không thể đăng nhập
- */
+
     public void deactivate() {
         this.active = false;
     }
 
-/**
  * Kích hoạt lại tài khoản
  * 
  * Lý do: Cho phép khôi phục tài khoản đã vô hiệu hóa
- */
+
     public void activate() {
         this.active = true;
     }
+**/
 
 /**
  * Cập nhật thời điểm đăng nhập gần nhất
@@ -206,6 +220,49 @@ public class User {
     public void updateLastLogin() {
         this.LastLoginAt = LocalDateTime.now();
     }
+
+/**
+ * getRoleSet - Convert roles string to Set<RoleType> 
+ */
+    public Set<RoleType> getRoleSet() {
+        if (roles == null || roles.trim().isEmpty()) {
+            return Set.of(RoleType.ROLE_USER);
+        }
+
+        return Arrays.stream(roles.split(","))
+                .map(String::trim)
+                .map(RoleType::valueOf)
+                .collect(Collectors.toSet());
+    }
+
+/**
+ * setRoleSet - Convert Set<RoleType> to roles string
+ */
+    public void setRoleSet(Set<RoleType> roleSet) {
+        if (roleSet == null || roleSet.isEmpty()) {
+            this.roles = "ROLE_USER";
+            return;
+        }
+
+        this.roles = roleSet.stream()
+                .map(RoleType::getAuthority)
+                .collect(Collectors.joining(","));
+    }
+ 
+/**
+ * hasRole - Kiểm tra user có role không
+ */
+    public boolean hasRole(RoleType role) {
+        return getRoleSet().contains(role);
+    }
+
+/**
+ * isAdmin - Kiểm tra user có phải ADMIN không
+ 
+    public boolean isAdmin() {
+        return hasRole(RoleType.ROLE_ADMIN);
+    }
+**/
 
 // ========== SOFT DELETE FIELDS ==========
     
@@ -246,6 +303,9 @@ public class User {
     @Builder.Default
     @JsonIgnore
     private List<Comment> comments = new ArrayList<>();
+
+    @Transient
+    public boolean isLocked;
 
     // ========== LIFECYCLE CALLBACKS ==========
 

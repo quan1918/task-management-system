@@ -59,6 +59,7 @@ public class TaskResponse {
 
     @JsonInclude(JsonInclude.Include.ALWAYS)
     private ProjectSummary project;
+    
     private Integer commentCount;
 
 /**

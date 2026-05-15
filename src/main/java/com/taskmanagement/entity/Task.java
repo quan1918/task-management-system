@@ -9,12 +9,13 @@ import lombok.*;
 
 // Hibernate timestamps
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import org.hibernate.annotations.OnDeleteAction;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 // Java built-in
 import java.time.LocalDateTime;
@@ -66,6 +67,7 @@ import java.util.HashSet;
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ToString(exclude = {"assignees", "project", "comments", "attachments"})
+@EntityListeners(AuditingEntityListener.class)
 public class Task {
     
 // ==================== PRIMARY KEY ====================
@@ -336,5 +338,12 @@ public class Task {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    @CreatedBy
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
+
+    @LastModifiedBy
+    @Column(name = "updated_by")
+    private Long updatedBy;
 }
 

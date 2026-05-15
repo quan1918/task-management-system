@@ -232,10 +232,12 @@ public class Project {
  * - Nếu chưa có startDate → đang ở giai đoạn planning
  *
  * Lý do: Phân biệt dự án lên kế hoạch vs đang hoạt động
- */
+ *
     public boolean hasStarted() {
         return startDate != null && LocalDate.now().isAfter(startDate);
     }
+**/
+
 
 /**
  * Kiểm tra dự án có bị quá hạn hay không
@@ -244,7 +246,7 @@ public class Project {
  * - Dự án active + endDate < hiện tại → overdue
  *
  * Lý do: Cảnh báo dự án cần ưu tiên
- */
+ *
     public boolean isOverdue() {
         return active && endDate != null && LocalDate.now().isAfter(endDate);
     }
@@ -254,14 +256,14 @@ public class Project {
  *
  * Dùng cho logic phân quyền (Authorization)
  * Ví dụ: chỉ owner mới được sửa/xóa project
- */
+ *
     public boolean isOwnedBy(User user) {
         return user != null && this.owner.getId().equals(user.getId());
     }
 
     /**
      * Helper: Thêm task vào project
-     */
+     *
     public void addTask(Task task) {
         tasks.add(task);
         task.setProject(this);
@@ -269,12 +271,14 @@ public class Project {
     
     /**
      * Helper: Xóa task khỏi project
-     */
+     *
     public void removeTask(Task task) {
         tasks.remove(task);
         task.setProject(null);
     }
+    */
 
+    /** 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -285,5 +289,6 @@ public class Project {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
+    **/
 }
 

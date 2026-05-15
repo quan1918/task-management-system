@@ -1,3 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import "tailwindcss";
+
+/* Global Reset*/
 * {
   margin: 0;
   padding: 0;
@@ -13,62 +19,3 @@ body {
   background-color: #f9fafb;
 }
 
-.App {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ==================== HEADER ==================== */
-.app-header {
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 1.5rem 0;
-  width: 175%;
-}
-
-.header-content {
-  max-width: 1400px; /* Match với dashboard content */
-  margin: 0 auto; /* Căn giữa */
-  padding: 0 1rem; /* Padding trong */
-}
-
-.app-header h1 {
-  font-size: 1.75rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 0.25rem;
-}
-
-.header-subtitle {
-  font-size: 0.95rem;
-  color: #6b7280;
-  font-weight: 400;
-}
-
-/* ==================== MAIN CONTENT ==================== */
-.app-main {
-  flex: 1;
-  padding: 0; /* Bỏ padding */
-  width: 100%; /* Full width */
-  margin: 0;
-}
-
-/* ==================== RESPONSIVE ==================== */
-@media (max-width: 768px) {
-  .app-header {
-    padding: 1rem 0;
-  }
-
-  .header-content {
-    padding: 0 1rem;
-  }
-
-  .app-header h1 {
-    font-size: 1.5rem;
-  }
-
-  .header-subtitle {
-    font-size: 0.85rem;
-  }
-}

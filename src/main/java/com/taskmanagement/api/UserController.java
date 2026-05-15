@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,7 +29,7 @@ import java.util.List;
  * - Trả về dữ liệu qua DTO UserResponse để đảm bảo an toàn
  */
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 @Slf4j
 public class UserController {
@@ -45,7 +46,7 @@ public class UserController {
      * Request:
      * POST /api/users
      * Content-Type: application/json
-     * Authorization: Basic YWRtaW46YWRtaW4=
+     * Authorization: Bearer <token>
      * 
      * Body:
      * {
@@ -58,8 +59,9 @@ public class UserController {
      * 
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')") // Chỉ admin mới có quyền tạo user mới
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
-        log.info("POST /api/users - Creating new user: {}", request.getUsername());
+        log.info("POST /users - Creating new user: {}", request.getUsername());
 
         //STEP 1: Gọi Service (Business Logic)
         UserResponse response = userService.createUser(request);
@@ -78,17 +80,17 @@ public class UserController {
      * Request:
      * - Method: GET
      * - URL: /api/users
-     * - Authentication: Required (Basic Auth)
+     * - Authentication: Required (Bearer Token)
      * 
      * 
      * Example Request:
      * GET /api/users
-     * Authorization: Basic YWRtaW46YWRtaW4=
+     * Authorization: Bearer <token>
      * 
      */
     @GetMapping
     public ResponseEntity<List<UserResponse>> getAllUser() {
-        log.info("GET /api/users - Fetching all users");
+        log.info("GET /users - Fetching all users");
 
         //STEP 1: Gọi Service
         List<UserResponse> responses = userService.getAllUsers();
@@ -108,17 +110,17 @@ public class UserController {
      * - Method: GET
      * - URL: /api/users/{id}
      * - Path Variable: id (Long) - User ID
-     * - Authentication: Required (Basic Auth)
+     * - Authentication: Required (Bearer Token)
      * 
      * 
      * Example Request:
      * GET /api/users/1
-     * Authorization: Basic YWRtaW46YWRtaW4=
+     * Authorization: Bearer <token>
      * 
      */
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
-        log.info("GET /api/users/{} - Fetching user by ID", id);
+        log.info("GET /users/{} - Fetching user by ID", id);
     
         //STEP 1: Gọi Service (Business Logic)
         UserResponse response = userService.getUserById(id);
@@ -134,12 +136,12 @@ public class UserController {
     /**
      * Cập nhật user
      * 
-     * Endpoint: PUT /api/users/{id}
+     * Endpoint: PATCH /api/users/{id}
      * 
      * Request:
-     * PUT /api/users/10
+     * PATCH /api/users/10
      * Content-Type: application/json
-     * Authorization: Basic YWRtaW46YWRtaW4=
+     * Authorization: Bearer <token>
      * 
      * Body (Partial Update):
      * {
@@ -148,12 +150,12 @@ public class UserController {
      * }
      * 
      */
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<UserResponse> updateUser(
         @PathVariable Long id,
         @Valid @RequestBody UpdateUserRequest request
     ) {
-        log.info("PUT /api/users/{} - Updating user: {}", id);
+        log.info("PATCH /users/{} - Updating user: {}", id, request);
 
         //STEP 1: Gọi Service
         UserResponse response = userService.updateUser(id, request);
@@ -176,12 +178,12 @@ public class UserController {
      * 
      * Request:
      * DELETE /api/users/2
-     * Authorization: Basic YWRtaW46YWRtaW4=
+     * Authorization: Bearer <token>
      * 
      */
     @DeleteMapping("/{id}")    
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        log.info("DELETE /api/users/{} - Deleting user", id);
+        log.info("DELETE /users/{} - Deleting user", id);
 
         userService.deleteUser(id);
 
@@ -199,7 +201,7 @@ public class UserController {
      */
     @PostMapping("/{id}/restore")
     public ResponseEntity<UserResponse> restoreUser(@PathVariable Long id) {
-        log.info("POST /api/users/{}/restore - Restoring user", id);
+        log.info("POST /users/{}/restore - Restoring user", id);
 
         userService.restoreUser(id);
         UserResponse response = userService.getUserById(id);

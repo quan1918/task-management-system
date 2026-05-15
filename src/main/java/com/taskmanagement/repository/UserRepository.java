@@ -2,12 +2,12 @@ package com.taskmanagement.repository;
 
 import com.taskmanagement.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -48,23 +48,27 @@ public interface UserRepository extends JpaRepository<User, Long>{
 
     /**
      * Lấy tất cả deleted users
-     */
     @Query("SELECT u FROM User u WHERE u.deleted = true")
     List<User> findAllDeleted();
+    **/
 
     /**
      * Đếm số projects mà user owns
-     */
     @Query("SELECT COUNT(p) FROM Project p WHERE p.owner.id = :userId")
     long countOwnedProjects(@Param("userId") Long userId);
+    **/
 
     /**
      * Hard delete user (bypass @SQLDelete)
      * ⚠️ CHỈ DÙNG CHO CLEANUP JOB
-     */
     @Modifying
     @Query(value = "DELETE FROM users WHERE id = :#{#user.id}", nativeQuery = true)
     void hardDelete(@Param("user") User user);
+    **/
+
+    @Query("SELECT u FROM User u WHERE u.id IN :ids AND u.deleted = false")
+    List<User> findAllActiveByIds(@Param("ids") Collection<Long> ids);
+
     // ==================== CÁC PHƯƠNG THỨC KẾ THỪA ====================
 //
 // Từ JpaRepository<User, Long>:
@@ -82,7 +86,5 @@ public interface UserRepository extends JpaRepository<User, Long>{
 // Các phương thức bổ sung có thể thêm sau khi phát triển các tính năng khác:
 // boolean existsByEmail(String email);
 // List<User> findByActiveTrue();
-
-    
 
 }

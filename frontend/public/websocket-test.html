@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        #log { background: #111; color: #0f0; padding: 10px; height: 400px; overflow-y: auto; }
+        input, button { margin: 4px; padding: 6px; }
+    </style>
+</head>
+<body>
+    <h3>WebSocket Test</h3>
+    <input id="token" placeholder="Paste JWT token here" style="width:500px"/>
+    <input id="projectId" placeholder="Project ID" value="1" style="width:80px"/>
+    <br>
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <br><br>
+    <div id="log">[Log output here]</div>
+
+    <script>
+        let client;
+
+        function log(msg) {
+            const div = document.getElementById('log');
+            div.innerHTML += '<br>' + new Date().toISOString().slice(11,19) + ' - ' + msg;
+            div.scrollTop = div.scrollHeight;
+        }
+
+    function connect() {
+      const token = document.getElementById('token').value.trim();
+      const projectId = document.getElementById('projectId').value.trim();
+
+      client = new StompJs.Client({
+        webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+        connectHeaders: { Authorization: 'Bearer ' + token },
+        onConnect: () => {
+          log('✅ Connected!');
+          client.subscribe('/topic/projects/' + projectId + '/tasks', (msg) => {
+            log('📨 Event: <b>' + msg.body + '</b>');
+          });
+          log('👂 Subscribed to /topic/projects/' + projectId + '/tasks');
+        },
+        onDisconnect: () => log('🔌 Disconnected'),
+        onStompError: (f) => log('❌ STOMP Error: ' + f.headers['message']),
+        reconnectDelay: 5000,
+      });
+
+      client.activate();
+      log('⏳ Connecting...');
+    }
+
+    function disconnect() {
+      client?.deactivate();
+    }
+    </script>
+</body>
+</html>

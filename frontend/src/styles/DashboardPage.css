@@ -1,14 +1,14 @@
 /* ==================== CONTAINER (FULL WIDTH BG + CENTER CONTENT) ==================== */
 .dashboard-container {
-  width: 170%; /* ✅ FIX: Was 170% */
+  width: 100%; 
   min-height: calc(100vh - 200px);
   background-color: #f9fafb;
-  padding: 2rem 0; /* ✅ FIX: Remove left/right padding */
+  padding: 2rem 0; 
 }
 
 .dashboard-content {
-  width: 170%; /* ✅ FIX: Was 170% */
-  max-width: 1400px; /* ✅ CHANGE: Wider for 2-column layout */
+  width: 100%; 
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 1rem;
 }

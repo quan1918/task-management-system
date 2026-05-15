@@ -2,18 +2,26 @@ package com.taskmanagement.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import com.taskmanagement.security.CustomAccessDeniedHandler;
+import com.taskmanagement.security.JwtAuthenticationEntryPoint;
+import com.taskmanagement.security.JwtAuthenticationFilter;
+import com.taskmanagement.security.LoginRateLimitFilter;
+
+import lombok.RequiredArgsConstructor;
 
 import java.util.Arrays;
 /**
@@ -22,8 +30,15 @@ import java.util.Arrays;
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
+@RequiredArgsConstructor
 public class SecurityConfig {
 
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CustomAccessDeniedHandler accessDeniedHandler;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final LoginRateLimitFilter loginRateLimitFilter;
+    
     /**
      * Configure HTTP security
      */
@@ -33,11 +48,16 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/api/v1/auth/**","/actuator/health","/swagger-ui/**","/v3/api-docs/**","/error","/ws/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()
             )
-            .httpBasic(basic -> {});
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler))
+            .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         
         return http.build();
     }
@@ -52,7 +72,7 @@ public class SecurityConfig {
             "https://task-management-frontend-8brf.onrender.com"
         ));
 
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
 
@@ -60,38 +80,17 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+    
     /**
-     * Định nghĩa users trong memory
-     * ============================================
-     * THAY ĐỔI USERNAME/PASSWORD TẠI ĐÂY
-     * ============================================
+     * AuthenticationManager - Ủy quyền xác thực cho Spring Security
+     * Sử dụng DaoAuthenticationProvider với CustomUserDetailsService và BCrypt
      */
     @Bean
-    public UserDetailsService userDetailsService() {
-        // User 1: Admin (full access)
-        UserDetails admin = User.builder()
-            .username("admin")           
-            .password(passwordEncoder().encode("admin"))  
-            .roles("ADMIN", "USER")
-            .build();
-        
-        // User 2: Regular user
-        UserDetails user = User.builder()
-            .username("user")            
-            .password(passwordEncoder().encode("user"))   
-            .roles("USER")
-            .build();
-        
-        // User 3: Test user (matches database)
-        UserDetails john = User.builder()
-            .username("john")         
-            .password(passwordEncoder().encode("john"))  
-            .roles("USER")
-            .build();
-
-        return new InMemoryUserDetailsManager(admin, user, john);
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration authenticationConfiguration) throws Exception {
+                return authenticationConfiguration.getAuthenticationManager();
     }
-
+        
     /**
      * Password encoder (BCrypt)
      */

@@ -30,6 +30,9 @@ logs/
 .env
 .env.local
 .env.*.local
+!.env.example
+frontend/.env*
+!frontend/.env.example
 
 # Node modules (if using frontend build tools)
 node_modules/
