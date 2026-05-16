@@ -190,7 +190,8 @@ spring:
       timeout:  2000ms
       ssl:
         enabled: ${REDIS_SSL_ENABLED:false} 
-      
+      repositories:
+        enabled: false
 # ============================================================================
 # PROFILE 1: DEVELOPMENT
 # ============================================================================
@@ -239,6 +240,7 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+    open-in-view: false
 
     properties:
       hibernate:
