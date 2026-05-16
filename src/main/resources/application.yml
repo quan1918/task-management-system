@@ -192,6 +192,7 @@ spring:
         enabled: ${REDIS_SSL_ENABLED:false} 
       repositories:
         enabled: false
+      timeout: 5s
 # ============================================================================
 # PROFILE 1: DEVELOPMENT
 # ============================================================================
