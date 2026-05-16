@@ -254,7 +254,7 @@ logging:
     org.hibernate.orm.jdbc.bind: WARN
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PORT:8080}
 
 #   
 #   datasource:
