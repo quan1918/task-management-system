@@ -184,10 +184,12 @@ rate-limit:
 spring:
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}   # empty = no password (local dev)
-      timeout: 2000ms
+      host:     ${REDIS_HOST:localhost}
+      port:     ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout:  2000ms
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false} 
       
 # ============================================================================
 # PROFILE 1: DEVELOPMENT
@@ -243,10 +245,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
         generate_statistics: false
-  
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
 
 logging:
   level:
