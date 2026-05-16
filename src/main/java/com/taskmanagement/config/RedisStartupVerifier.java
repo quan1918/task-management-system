@@ -30,7 +30,7 @@ public class RedisStartupVerifier {
                 log.warn(" Redis connection: Unexpected response = {}", pong);
             }
         } catch (Exception e) {
-            log.warn(" Redis connection: FAILED — {}", e.getMessage());
+            log.warn(" Redis connection: FAILED — {}", e);
             log.warn(" App will run in degraded mode (blacklist + brute-force protection disabled)");
         }
         log.info("========================================");

@@ -187,7 +187,7 @@ spring:
       host:     ${REDIS_HOST:localhost}
       port:     ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
-      timeout:  2000ms
+      timeout:  5s
       ssl:
         enabled: ${REDIS_SSL_ENABLED:false} 
       repositories:
