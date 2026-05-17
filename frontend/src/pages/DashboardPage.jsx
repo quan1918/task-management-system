@@ -140,11 +140,11 @@ function DashboardPage() {
                 {/* NEW: Main Grid Container - Projects + Tasks in Same Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-6 mb-6">
                     {/* LEFT: Projects Panel (1/3 width) */}
-                    <section className={`${sectionCard} p-4`}>
+                    <section className={`${sectionCard} p-4 flex flex-col`}>
                         <div className={`${sectionHeader} mb-3`}>
                             <h2 className="text-base font-semibold text-gray-800 m-0">Projects</h2>
                         </div>
-                        <div className="flex flex-col gap-1.5 mb-3 h-[400px] overflow-y-auto pr-2">
+                        <div className="flex flex-col gap-1.5 mb-3 h-[550px] overflow-y-auto pr-2">
                             {/* Project list */}
                             {projects.map(project => (
                                 <div
@@ -170,7 +170,7 @@ function DashboardPage() {
                         </div>
 
                         <button 
-                            className={btnAdd}
+                            className={`${btnAdd} !mt-auto`}
                             onClick={() => setIsProjectModalOpen(true)}
                         >
                             + Add New Project

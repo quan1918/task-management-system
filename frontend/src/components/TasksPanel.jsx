@@ -131,7 +131,7 @@ const TasksPanel = React.memo(function TasksPanel({ selectedProjectId, projects,
     });
 
     return (
-        <section className="bg-white border border-gray-200 rounded p-6">
+        <section className="bg-white border border-gray-200 rounded p-6 flex flex-col">
             <div className="flex justify-between items-center pb-3 border-b border-gray-200 mb-4">
                 <h2 className="text-[1.1rem] font-semibold text-gray-800 m-0">Tasks</h2>
                 <span className="text-sm text-gray-500 font-medium">{filteredTasks.length} tasks</span>
@@ -275,7 +275,7 @@ const TasksPanel = React.memo(function TasksPanel({ selectedProjectId, projects,
                     </div>
                 </div>
             )}
-            <button className={btnAdd} onClick={() => setIsTaskModalOpen(true)}>
+            <button className={`${btnAdd} !mt-auto`} onClick={() => setIsTaskModalOpen(true)}>
                 + Add New Task
             </button>
 
