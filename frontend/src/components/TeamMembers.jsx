@@ -62,7 +62,7 @@ const TeamMembers = React.memo(function TeamMembers({ selectedProjectId, onUsers
                 <span className="text-sm text-gray-500 font-medium">{users.length} members</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 h-[400px] overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 h-[400px] overflow-y-auto pr-2 content-start">
                 {users.map(user => (
                     <div key={user.id}
                         className="flex items-center gap-3 p-4 border border-gray-200 rounded transition-all hover:border-gray-300 hover:shadow-sm">
